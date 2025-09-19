@@ -80,10 +80,16 @@ pub fn build(b: *std.Build) !void {
         .root_module = driver_ignition_module,
     });
 
-    const install_driver_ignition = b.addInstallArtifact(driver_ignition_dll, .{
-        .dest_dir = .{ .override = .bin },
-        .dest_sub_path = b.fmt("driver_ignition/bin/{s}{s}/", .{ os_openvr_name, cpu_openvr_name }),
-    });
+    const install_driver_ignition = b.addInstallFile(driver_ignition_dll.getEmittedBin(), b.fmt("driver_ignition/bin/{s}{s}/{s}.{s}", .{
+        os_openvr_name,
+        cpu_openvr_name,
+        driver_ignition_dll.name,
+        switch (native_target.result.os.tag) {
+            .windows => "dll",
+            .linux => "so",
+            else => @panic("unsupported os"),
+        },
+    }));
 
     const install_step = b.getInstallStep();
     install_step.dependOn(&install_driver_ignition.step);
