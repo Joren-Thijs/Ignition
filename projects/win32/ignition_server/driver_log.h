@@ -1,10 +1,12 @@
 #pragma once
 
-#include <openvr_driver.h>
+#include <openvr.hpp>
 
-namespace ignition {
+namespace ignition
+{
 
-  class DriverLog : public vr::IVRDriverLog {
+  class DriverLog : public vr::IVRDriverLog
+  {
   public:
     /** IVRDriverLog **/
 

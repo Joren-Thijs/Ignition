@@ -8,11 +8,13 @@
 #include "resources.h"
 #include "settings.h"
 
-#include <openvr_driver.h>
+#include <openvr.hpp>
 
-namespace ignition {
+namespace ignition
+{
 
-  class DriverContext : public vr::IVRDriverContext {
+  class DriverContext : public vr::IVRDriverContext
+  {
   public:
     /** IVRDriverContext **/
 

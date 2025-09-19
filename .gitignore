@@ -6,5 +6,6 @@
 [Rr]elease/x64/
 
 .zig-cache/
+zig-out/
 
 compile_commands.json

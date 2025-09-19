@@ -1,10 +1,12 @@
 #pragma once
 
-#include <openvr_driver.h>
+#include <openvr.hpp>
 
-namespace ignition {
+namespace ignition
+{
 
-  class Settings : public vr::IVRSettings {
+  class Settings : public vr::IVRSettings
+  {
   public:
     /** IVRSettings **/
 

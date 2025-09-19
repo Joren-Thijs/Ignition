@@ -1,10 +1,12 @@
 #pragma once
 
-#include <openvr_driver.h>
+#include <openvr.hpp>
 
-namespace ignition {
+namespace ignition
+{
 
-  class DriverHost : public vr::IVRServerDriverHost {
+  class DriverHost : public vr::IVRServerDriverHost
+  {
   public:
     /** IVRServerDriverHost **/
 

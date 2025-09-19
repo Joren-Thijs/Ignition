@@ -1,12 +1,14 @@
 #pragma once
 
-#include <openvr_driver.h>
+#include <openvr.hpp>
 
-namespace ignition {
+namespace ignition
+{
 
-  class DriverInput : public vr::IVRDriverInput {
-  public:
-    /** IVRDriverInput **/
+	class DriverInput : public vr::IVRDriverInput
+	{
+	public:
+		/** IVRDriverInput **/
 
 		vr::EVRInputError CreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) override;
 		vr::EVRInputError UpdateBooleanComponent(vr::VRInputComponentHandle_t ulComponent, bool bNewValue, double fTimeOffset) override;
@@ -19,6 +21,6 @@ namespace ignition {
 		vr::EVRInputError UpdatePoseComponent(vr::VRInputComponentHandle_t ulComponent, const vr::HmdMatrix34_t *pMatPoseOffset, double fTimeOffset) override;
 		vr::EVRInputError CreateEyeTrackingComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) override;
 		vr::EVRInputError UpdateEyeTrackingComponent(vr::VRInputComponentHandle_t ulComponent, const vr::VREyeTrackingData_t *pEyeTrackingData, double fTimeOffset) override;
-  };
+	};
 
 }

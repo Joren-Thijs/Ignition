@@ -1,6 +1,6 @@
 #pragma once
 
-#include "openvr.hpp"
+#include <openvr.hpp>
 
 #include <memory>
 

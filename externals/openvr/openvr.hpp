@@ -17,5 +17,5 @@
 #pragma clang diagnostic ignored "-Wdocumentation-unknown-command"
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #pragma clang diagnostic ignored "-Wignored-attributes"
-#include "openvr_driver.h"
+#include <openvr_driver.h>
 #pragma clang diagnostic pop

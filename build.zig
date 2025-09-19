@@ -40,7 +40,6 @@ pub fn build(b: *std.Build) !void {
         .os_version_min = .{ .windows = .win10 },
         .cpu_arch = .x86_64,
     });
-    _ = wine_target; // autofix
 
     const os_openvr_name = switch (native_target.result.os.tag) {
         .windows => "win",
@@ -57,6 +56,8 @@ pub fn build(b: *std.Build) !void {
 
     const driver_ignition_path = b.path("projects/driver_ignition/");
 
+    const external_openvr_path = b.path("externals/openvr/");
+
     const driver_ignition_module = b.createModule(.{
         .target = native_target,
         .optimize = optimize,
@@ -64,6 +65,7 @@ pub fn build(b: *std.Build) !void {
         .link_libc = true,
     });
     driver_ignition_module.addIncludePath(openvr_headers);
+    driver_ignition_module.addIncludePath(external_openvr_path);
     driver_ignition_module.addCSourceFiles(.{
         .flags = cpp_flags,
         .files = &.{
@@ -80,6 +82,37 @@ pub fn build(b: *std.Build) !void {
         .root_module = driver_ignition_module,
     });
 
+    const ignition_server_path = b.path("projects/win32/ignition_server/");
+
+    const ignition_server_module = b.createModule(.{
+        .target = wine_target,
+        .optimize = optimize,
+        .link_libc = true,
+        .link_libcpp = true,
+    });
+    ignition_server_module.addIncludePath(openvr_headers);
+    ignition_server_module.addIncludePath(external_openvr_path);
+    ignition_server_module.addCSourceFiles(.{
+        .files = &.{
+            "main.cpp",
+            "properties.cpp",
+            "resources.cpp",
+            "settings.cpp",
+            "driver_manager.cpp",
+            "driver_log.cpp",
+            "driver_input.cpp",
+            "driver_host.cpp",
+            "driver_context.cpp",
+        },
+        .root = ignition_server_path,
+        .language = .cpp,
+    });
+
+    const ignition_server_exe = b.addExecutable(.{
+        .name = "ignition_server",
+        .root_module = ignition_server_module,
+    });
+
     const install_driver_ignition = b.addInstallFile(driver_ignition_dll.getEmittedBin(), b.fmt("driver_ignition/bin/{s}{s}/{s}.{s}", .{
         os_openvr_name,
         cpu_openvr_name,
@@ -91,6 +124,7 @@ pub fn build(b: *std.Build) !void {
         },
     }));
 
+    b.installArtifact(ignition_server_exe);
     const install_step = b.getInstallStep();
     install_step.dependOn(&install_driver_ignition.step);
 

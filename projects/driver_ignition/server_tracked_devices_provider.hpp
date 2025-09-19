@@ -1,9 +1,10 @@
 #pragma once
 
-#include "openvr.hpp"
+#include <openvr.hpp>
 #include "ipc.hpp"
 
-class IgnitionServerTrackedDeviceProvider : public vr::IServerTrackedDeviceProvider {
+class IgnitionServerTrackedDeviceProvider : public vr::IServerTrackedDeviceProvider
+{
 private:
     std::shared_ptr<ipc::InterfaceHandle> handle;
 
