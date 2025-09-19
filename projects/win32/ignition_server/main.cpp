@@ -27,5 +27,7 @@ int main() {
 
   pDeviceProvider->Init(&driverContext);
 
+  while (true) { Sleep(1); }
+
   return 0;
 }

@@ -2,6 +2,7 @@
 
 #include "driver_log.h"
 #include "driver_host.h"
+#include "driver_input.h"
 #include "driver_manager.h"
 #include "properties.h"
 #include "resources.h"
@@ -21,6 +22,7 @@ namespace ignition {
   private:
     DriverLog m_driverLog = {};
     DriverHost m_driverHost = {};
+    DriverInput m_driverInput = {};
     DriverManager m_driverManager = {};
     Properties m_properties = {};
     Resources m_resources = {};

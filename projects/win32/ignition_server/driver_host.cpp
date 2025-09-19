@@ -6,6 +6,7 @@ namespace ignition {
 
   bool DriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver *pDriver) {
     printf("DriverHost::TrackedDeviceAdded(%s, %i)\n", pchDeviceSerialNumber, eDeviceClass);
+    pDriver->Activate(0);
     return false;
   }
 

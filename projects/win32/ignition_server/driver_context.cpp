@@ -12,6 +12,12 @@ namespace ignition {
     if (strcmp(vr::IVRServerDriverHost_Version, pchInterfaceVersion) == 0) {
       return &m_driverHost;
     }
+    if (strcmp("IVRDriverInput_003", pchInterfaceVersion) == 0) {
+      return &m_driverInput;
+    }
+    if (strcmp(vr::IVRDriverInput_Version, pchInterfaceVersion) == 0) {
+      return &m_driverInput;
+    }
     if (strcmp(vr::IVRDriverManager_Version, pchInterfaceVersion) == 0) {
       return &m_driverManager;
     }

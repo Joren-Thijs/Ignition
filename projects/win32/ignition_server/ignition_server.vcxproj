@@ -82,6 +82,7 @@
   <ItemGroup>
     <ClCompile Include="driver_context.cpp" />
     <ClCompile Include="driver_host.cpp" />
+    <ClCompile Include="driver_input.cpp" />
     <ClCompile Include="driver_log.cpp" />
     <ClCompile Include="driver_manager.cpp" />
     <ClCompile Include="main.cpp" />
@@ -92,6 +93,7 @@
   <ItemGroup>
     <ClInclude Include="driver_context.h" />
     <ClInclude Include="driver_host.h" />
+    <ClInclude Include="driver_input.h" />
     <ClInclude Include="driver_log.h" />
     <ClInclude Include="driver_manager.h" />
     <ClInclude Include="properties.h" />

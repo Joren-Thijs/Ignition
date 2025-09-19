@@ -9,7 +9,7 @@ namespace ignition {
     return vr::TrackedProp_Success;
   }
   vr::ETrackedPropertyError Properties::WritePropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyWrite_t *pBatch, uint32_t unBatchEntryCount) {
-    printf("Properties::WritePropertyBatch()\n");
+    //printf("Properties::WritePropertyBatch()\n"); // commented for preventing spam
     return vr::TrackedProp_Success;
   }
   const char *Properties::GetPropErrorNameFromEnum(vr::ETrackedPropertyError error) {
@@ -17,7 +17,7 @@ namespace ignition {
     return nullptr;
   }
   vr::PropertyContainerHandle_t Properties::TrackedDeviceToPropertyContainer(vr::TrackedDeviceIndex_t nDevice) {
-    printf("Properties::TrackedDeviceToPropertyContainer()\n");
+    //printf("Properties::TrackedDeviceToPropertyContainer()\n"); // commented for preventing spam
     return 0;
   }
 
