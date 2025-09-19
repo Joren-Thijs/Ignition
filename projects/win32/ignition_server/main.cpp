@@ -7,14 +7,14 @@
 void *(*pfnHmdDriverFactory)(const char *pInterfaceName, int *pReturnCode) = nullptr;
 
 int main(int argc, char *argv[]) {
+#ifdef HARDCODED_DRIVER_PATH
+  HMODULE hModule = LoadLibraryW(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2.dll");
+#else
   if (argc < 2) {
     printf("usage: ignition_server.exe <driver path>");
     return 0;
   }
 
-#ifdef HARDCODED_DRIVER_PATH
-  HMODULE hModule = LoadLibraryW(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2.dll");
-#else
   HMODULE hModule = LoadLibraryA(argv[1]);
 #endif
   if (!hModule) {
