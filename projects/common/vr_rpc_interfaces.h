@@ -3,8 +3,9 @@
 #include <openvr.hpp>
 #include "rpc_core.h"
 
-// A special class on the client that holds the real IVRDriverContext provided by SteamVR
-// and vends RPC-wrapped interfaces to the server.
+// ************************************
+// RPC wrapper for vr::IVRDriverContext
+// ************************************
 class ClientContextManager : public vr::IVRDriverContext, public RpcObject {
 public:
     // Local constructor (client-side)
@@ -29,7 +30,9 @@ private:
 };
 
 
+// ************************************************
 // RPC wrapper for vr::IServerTrackedDeviceProvider
+// ************************************************
 class RpcServerTrackedDeviceProvider : public vr::IServerTrackedDeviceProvider, public RpcObject
 {
 public:
@@ -57,7 +60,9 @@ private:
     std::vector<const char*> client_versions_ptrs_;
 };
 
+// ***************************************
 // RPC wrapper for vr::IVRServerDriverHost
+// ***************************************
 class RpcDriverHost : public vr::IVRServerDriverHost, public RpcObject
 {
 public:
@@ -87,7 +92,9 @@ private:
     vr::IVRServerDriverHost* real_host_ = nullptr; // Only valid on the client
 };
 
+// ********************************
 // RPC wrapper for vr::IVRDriverLog
+// ********************************
 class RpcDriverLog : public vr::IVRDriverLog, public RpcObject
 {
 public:
@@ -103,7 +110,9 @@ private:
     vr::IVRDriverLog* real_log_ = nullptr;
 };
 
+// *******************************
 // RPC wrapper for vr::IVRSettings
+// *******************************
 class RpcSettings : public vr::IVRSettings, public RpcObject
 {
 public:
@@ -127,9 +136,12 @@ public:
 
 private:
     vr::IVRSettings* real_settings_ = nullptr;
+    std::map<vr::EVRSettingsError, std::string> error_name_cache_;
 };
 
+// **********************************************
 // RPC wrapper for vr::ITrackedDeviceServerDriver
+// **********************************************
 class RpcTrackedDeviceServerDriver : public vr::ITrackedDeviceServerDriver, public RpcObject
 {
 public:
@@ -153,7 +165,9 @@ private:
     vr::ITrackedDeviceServerDriver* real_driver_ = nullptr; // Only valid on the server
 };
 
+// ***************************************
 // RPC wrapper for vr::IVRDisplayComponent
+// ***************************************
 class RpcDisplayComponent : public vr::IVRDisplayComponent, public RpcObject
 {
 public:
@@ -179,7 +193,9 @@ private:
     vr::IVRDisplayComponent* real_component_ = nullptr; // Only valid on the server
 };
 
+// **************************************
 // RPC wrapper for vr::IVRCameraComponent
+// **************************************
 class RpcCameraComponent : public vr::IVRCameraComponent, public RpcObject
 {
 public:
@@ -218,7 +234,9 @@ private:
     vr::IVRCameraComponent* real_component_ = nullptr; // Only valid on the server
 };
 
+// **********************************
 // RPC wrapper for vr::IVRDriverInput
+// **********************************
 class RpcDriverInput : public vr::IVRDriverInput, public RpcObject
 {
 public:
@@ -244,7 +262,9 @@ private:
     vr::IVRDriverInput* real_input_ = nullptr;
 };
 
+// ************************************
 // RPC wrapper for vr::IVRDriverManager
+// ************************************
 class RpcDriverManager : public vr::IVRDriverManager, public RpcObject
 {
 public:
@@ -263,7 +283,9 @@ private:
     vr::IVRDriverManager* real_manager_ = nullptr;
 };
 
+// *********************************
 // RPC wrapper for vr::IVRProperties
+// *********************************
 class RpcProperties : public vr::IVRProperties, public RpcObject
 {
 public:
@@ -282,14 +304,9 @@ private:
     vr::IVRProperties* real_properties_ = nullptr;
 };
 
-// Helper struct to manage the memory for a property batch read result.
-struct PropertyReadBatchResult {
-    vr::ETrackedPropertyError overallError = vr::TrackedProp_Success;
-    std::vector<vr::PropertyRead_t> batch;
-    std::vector<char> data_buffer;
-};
-
+// ********************************
 // RPC wrapper for vr::IVRResources
+// ********************************
 class RpcResources : public vr::IVRResources, public RpcObject
 {
 public:
