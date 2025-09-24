@@ -1,7 +1,6 @@
 #pragma once
 
 #include <openvr.hpp>
-#include "ipc.hpp"
 
 #ifdef _WIN32
 #define HMD_DLL_EXPORT extern "C" __declspec(dllexport)

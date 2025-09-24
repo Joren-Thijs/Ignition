@@ -9,3 +9,5 @@
 zig-out/
 
 compile_commands.json
+
+build/
