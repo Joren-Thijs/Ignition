@@ -356,7 +356,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto eventType = (vr::EVREventType)args[1].asInt();
             auto eventDataPair = args[2].asPointer();
-            double eventTimeOffset = (double)args[3].asFloat();
+            double eventTimeOffset = (double)args[3].asDouble();
 
             vr::VREvent_Data_t eventData;
             if (eventDataPair.second == sizeof(vr::VREvent_Data_t))
@@ -368,7 +368,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
         });
 
         RpcSystem::RegisterFunction(prefix + "VsyncEvent", [this](const auto& args){
-            this->real_host_->VsyncEvent(args[0].asFloat());
+            this->real_host_->VsyncEvent(args[0].asDouble());
             return RpcValue();
         });
 
@@ -477,7 +477,7 @@ void RpcDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice, const vr::D
 
 void RpcDriverHost::VsyncEvent(double vsyncTimeOffsetSeconds) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "VsyncEvent", RpcValue((float)vsyncTimeOffsetSeconds));
+        RpcSystem::CallMethod(GetId(), "VsyncEvent", RpcValue(vsyncTimeOffsetSeconds));
     }
 }
 
@@ -487,7 +487,7 @@ void RpcDriverHost::VendorSpecificEvent(uint32_t unWhichDevice, vr::EVREventType
             RpcValue((int)unWhichDevice),
             RpcValue((int)eventType),
             RpcValue((const char*)&eventData, sizeof(eventData)),
-            RpcValue((float)eventTimeOffset)
+            RpcValue(eventTimeOffset)
         );
     }
 }
@@ -1427,7 +1427,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
         RpcSystem::RegisterFunction(prefix + "UpdateBooleanComponent", [this](const auto& args){
-            vr::EVRInputError err = this->real_input_->UpdateBooleanComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asInt(), args[2].asFloat());
+            vr::EVRInputError err = this->real_input_->UpdateBooleanComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asInt(), args[2].asDouble());
             return RpcValue((int)err);
         });
         RpcSystem::RegisterFunction(prefix + "CreateScalarComponent", [this](const auto& args){
@@ -1440,7 +1440,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
         RpcSystem::RegisterFunction(prefix + "UpdateScalarComponent", [this](const auto& args){
-            vr::EVRInputError err = this->real_input_->UpdateScalarComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asFloat(), args[2].asFloat());
+            vr::EVRInputError err = this->real_input_->UpdateScalarComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asFloat(), args[2].asDouble());
             return RpcValue((int)err);
         });
         RpcSystem::RegisterFunction(prefix + "CreateHapticComponent", [this](const auto& args){
@@ -1486,7 +1486,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
         RpcSystem::RegisterFunction(prefix + "UpdatePoseComponent", [this](const auto& args){
-            vr::EVRInputError err = this->real_input_->UpdatePoseComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::HmdMatrix34_t*)args[1].asPointer().first, args[2].asFloat());
+            vr::EVRInputError err = this->real_input_->UpdatePoseComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::HmdMatrix34_t*)args[1].asPointer().first, args[2].asDouble());
             return RpcValue((int)err);
         });
          RpcSystem::RegisterFunction(prefix + "CreateEyeTrackingComponent", [this](const auto& args){
@@ -1503,7 +1503,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             if(arg.second != sizeof(vr::VREyeTrackingData_t)) {
                 return RpcValue((int)vr::VRInputError_InvalidParam);
             }
-            vr::EVRInputError err = this->real_input_->UpdateEyeTrackingComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::VREyeTrackingData_t*)arg.first, args[2].asFloat());
+            vr::EVRInputError err = this->real_input_->UpdateEyeTrackingComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::VREyeTrackingData_t*)arg.first, args[2].asDouble());
             return RpcValue((int)err);
         });
     }
@@ -1534,7 +1534,7 @@ vr::EVRInputError RpcDriverInput::CreateBooleanComponent(vr::PropertyContainerHa
 
 vr::EVRInputError RpcDriverInput::UpdateBooleanComponent(vr::VRInputComponentHandle_t ulComponent, bool bNewValue, double fTimeOffset) {
     if (IsProxy()) {
-        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateBooleanComponent", RpcValue(ulComponent), RpcValue((int)bNewValue), RpcValue((float)fTimeOffset)).asInt();
+        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateBooleanComponent", RpcValue(ulComponent), RpcValue((int)bNewValue), RpcValue(fTimeOffset)).asInt();
     } else {
         return real_input_->UpdateBooleanComponent(ulComponent, bNewValue, fTimeOffset);
     }
@@ -1558,7 +1558,7 @@ vr::EVRInputError RpcDriverInput::CreateScalarComponent(vr::PropertyContainerHan
 
 vr::EVRInputError RpcDriverInput::UpdateScalarComponent(vr::VRInputComponentHandle_t ulComponent, float fNewValue, double fTimeOffset) {
     if (IsProxy()) {
-        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateScalarComponent", RpcValue(ulComponent), RpcValue(fNewValue), RpcValue((float)fTimeOffset)).asInt();
+        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateScalarComponent", RpcValue(ulComponent), RpcValue(fNewValue), RpcValue(fTimeOffset)).asInt();
     } else {
         return real_input_->UpdateScalarComponent(ulComponent, fNewValue, fTimeOffset);
     }
@@ -1635,7 +1635,7 @@ vr::EVRInputError RpcDriverInput::CreatePoseComponent(vr::PropertyContainerHandl
 
 vr::EVRInputError RpcDriverInput::UpdatePoseComponent(vr::VRInputComponentHandle_t ulComponent, const vr::HmdMatrix34_t *pMatPoseOffset, double fTimeOffset) {
      if (IsProxy()) {
-         return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdatePoseComponent", RpcValue(ulComponent), RpcValue((const char*)pMatPoseOffset, sizeof(vr::HmdMatrix34_t)), RpcValue((float)fTimeOffset)).asInt();
+         return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdatePoseComponent", RpcValue(ulComponent), RpcValue((const char*)pMatPoseOffset, sizeof(vr::HmdMatrix34_t)), RpcValue(fTimeOffset)).asInt();
      } else {
          return real_input_->UpdatePoseComponent(ulComponent, pMatPoseOffset, fTimeOffset);
      }
@@ -1659,7 +1659,7 @@ vr::EVRInputError RpcDriverInput::CreateEyeTrackingComponent(vr::PropertyContain
 
 vr::EVRInputError RpcDriverInput::UpdateEyeTrackingComponent(vr::VRInputComponentHandle_t ulComponent, const vr::VREyeTrackingData_t *pEyeTrackingData, double fTimeOffset) {
     if (IsProxy()) {
-        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateEyeTrackingComponent", RpcValue(ulComponent), RpcValue((const char*)pEyeTrackingData, sizeof(vr::VREyeTrackingData_t)), RpcValue((float)fTimeOffset)).asInt();
+        return (vr::EVRInputError)RpcSystem::CallMethod(GetId(), "UpdateEyeTrackingComponent", RpcValue(ulComponent), RpcValue((const char*)pEyeTrackingData, sizeof(vr::VREyeTrackingData_t)), RpcValue(fTimeOffset)).asInt();
     } else {
         return real_input_->UpdateEyeTrackingComponent(ulComponent, pEyeTrackingData, fTimeOffset);
     }

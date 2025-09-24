@@ -5,11 +5,13 @@ project(ignition_server)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
 include_directories(${CMAKE_SOURCE_DIR}/externals/openvr)
 include_directories(${CMAKE_SOURCE_DIR}/projects/common)
 
-add_executable(${PROJECT_NAME}
+add_executable(ignition_server
     main.cpp
 )
-target_link_libraries(${PROJECT_NAME} PRIVATE ignition_common)
+
+target_compile_definitions(ignition_server PUBLIC -DNOMINMAX)
+
+target_link_libraries(ignition_server PRIVATE ignition_common)

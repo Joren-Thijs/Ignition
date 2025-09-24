@@ -1,7 +1,4 @@
-#ifndef RPC_CORE_H
-#define RPC_CORE_H
-
-#define NOMINMAX
+#pragma once
 
 #include <windows.h>
 #include <string>
@@ -24,12 +21,25 @@ namespace ignition
     {
         constexpr size_t SHM_BUFFER_SIZE = 1024 * 128; // 128 KB
 
+        // Pack in MSVC and GCC
+        #ifdef _MSC_VER
+            #pragma pack(push, 1)
+        #else
+            #pragma pack(1)
+        #endif
+
         struct CircularBuffer {
             std::atomic_flag lock = ATOMIC_FLAG_INIT;
-            std::atomic<size_t> head;
-            std::atomic<size_t> tail;
+            size_t head;
+            size_t tail;
             char buffer[SHM_BUFFER_SIZE];
         };
+
+        #ifdef _MSC_VER
+            #pragma pack(pop)
+        #else
+            #pragma pack()
+        #endif
     }
 }
 
@@ -47,6 +57,7 @@ public:
     RpcValue() : type_(T_NULL) {}
     explicit RpcValue(int v) : type_(T_INT), int_val_(v) {}
     explicit RpcValue(float v) : type_(T_FLOAT), float_val_(v) {}
+    explicit RpcValue(double v) : type_(T_DOUBLE), double_val_(v) {}
     explicit RpcValue(const std::string& v) : type_(T_STRING), str_val_(v) {}
     explicit RpcValue(uint64_t v) : type_(T_UINT64), uint64_val_(v) {}
     RpcValue(const char* data, size_t len) : type_(T_POINTER), ptr_val_(data, data + len) {}
@@ -61,6 +72,7 @@ public:
     // Type checking
     bool isInt() const { return type_ == T_INT; }
     bool isFloat() const { return type_ == T_FLOAT; }
+    bool isDouble() const { return type_ == T_DOUBLE; }
     bool isString() const { return type_ == T_STRING; }
     bool isPointer() const { return type_ == T_POINTER; }
     bool isUint64() const { return type_ == T_UINT64; }
@@ -69,6 +81,7 @@ public:
     // Value accessors
     int asInt() const;
     float asFloat() const;
+    double asDouble() const;
     std::string asString() const;
     uint64_t asUint64() const;
     std::pair<const char*, size_t> asPointer() const;
@@ -76,7 +89,7 @@ public:
 
 private:
     friend class Serializer;
-    enum Type { T_NULL, T_INT, T_FLOAT, T_STRING, T_POINTER, T_OBJECT_REF, T_UINT64 };
+    enum Type { T_NULL, T_INT, T_FLOAT, T_DOUBLE, T_STRING, T_POINTER, T_OBJECT_REF, T_UINT64 };
     Type type_;
 
     // Holds info to look up a remote object
@@ -88,6 +101,7 @@ private:
     union {
         int int_val_ = 0;
         float float_val_;
+        double double_val_;
         uint64_t uint64_val_;
         ObjectRef obj_ref_;
     };
@@ -312,6 +326,3 @@ inline RpcValue RpcSystem::InternalCall(RpcObjectId objId, const std::string& fu
     
     return pendingCall->returnValue;
 }
-
-
-#endif // RPC_CORE_H

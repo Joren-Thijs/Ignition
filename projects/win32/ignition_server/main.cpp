@@ -58,9 +58,6 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  // Set working directory
-  //SetCurrentDirectoryA("C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64");
-
   pfnHmdDriverFactory = decltype(pfnHmdDriverFactory)(GetProcAddress(hModule, "HmdDriverFactory"));
   if (!pfnHmdDriverFactory)
   {
@@ -78,35 +75,28 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  // Loop to allow server to be reused after a client disconnects.
-  while (true) {
-      RpcSystem::StartServer();
+  
+  RpcSystem::StartServer();
 
-      // Create the RPC wrapper for the real provider.
-      g_pRpcProvider = new RpcServerTrackedDeviceProvider(pRealDeviceProvider);
-      
-      // Register a function that the client can call to get a proxy to our provider.
-      RpcSystem::RegisterFunction(vr::IServerTrackedDeviceProvider_Version, [](const auto& args) {
-        auto val = RpcValue(g_pRpcProvider);
-        return val;
-      });
-      
-      printf("Ignition server is running. Waiting for client driver to connect...\n");
+  // Create the RPC wrapper for the real provider.
+  g_pRpcProvider = new RpcServerTrackedDeviceProvider(pRealDeviceProvider);
+  
+  // Register a function that the client can call to get a proxy to our provider.
+  RpcSystem::RegisterFunction(vr::IServerTrackedDeviceProvider_Version, [](const auto& args) {
+    auto val = RpcValue(g_pRpcProvider);
+    return val;
+  });
+  
+  printf("Ignition server is running. Waiting for client driver to connect...\n");
 
-      while (RpcSystem::IsConnected())
-      {
-        // The listen thread handles everything. We can do other work here if needed.
-        Sleep(1000);
-      }
-
-      printf("Client disconnected. Shutting down for this session.\n");
-      delete g_pRpcProvider;
-      g_pRpcProvider = nullptr;
-      RpcSystem::Shutdown();
-      printf("Restarting server to wait for new client...\n");
+  while (RpcSystem::IsConnected())
+  {
+    // The listen thread handles everything. We can do other work here if needed.
+    Sleep(1000);
   }
 
   printf("Client disconnected. Shutting down.\n");
+  
   delete g_pRpcProvider;
   RpcSystem::Shutdown();
 

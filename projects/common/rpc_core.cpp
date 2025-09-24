@@ -51,6 +51,7 @@ RpcValue::RpcValue(const RpcValue& other) : type_(other.type_) {
     switch (type_) {
         case T_INT:        int_val_    = other.int_val_;    break;
         case T_FLOAT:      float_val_  = other.float_val_;  break;
+        case T_DOUBLE:     double_val_ = other.double_val_; break;
         case T_UINT64:     uint64_val_ = other.uint64_val_; break;
         case T_OBJECT_REF: obj_ref_    = other.obj_ref_;    break;
         case T_STRING:     str_val_    = other.str_val_;    break;
@@ -87,6 +88,10 @@ int RpcValue::asInt() const {
 float RpcValue::asFloat() const {
     if (!isFloat()) throw std::runtime_error("RpcValue is not a float.");
     return float_val_;
+}
+double RpcValue::asDouble() const {
+    if (!isDouble()) throw std::runtime_error("RpcValue is not a double.");
+    return double_val_;
 }
 std::string RpcValue::asString() const {
     if (!isString()) throw std::runtime_error("RpcValue is not a string.");
@@ -135,6 +140,10 @@ void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
             buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.float_val_), reinterpret_cast<const char*>(&val.float_val_) + sizeof(float));
             break;
         }
+        case RpcValue::T_DOUBLE: {
+            buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.double_val_), reinterpret_cast<const char*>(&val.double_val_) + sizeof(double));
+            break;
+        }
         case RpcValue::T_UINT64: {
             buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.uint64_val_), reinterpret_cast<const char*>(&val.uint64_val_) + sizeof(uint64_t));
             break;
@@ -176,6 +185,12 @@ RpcValue Serializer::deserialize(const char*& buffer_ptr, const char* buffer_end
             float val;
             memcpy(&val, buffer_ptr, sizeof(float));
             buffer_ptr += sizeof(float);
+            return RpcValue(val);
+        }
+        case RpcValue::T_DOUBLE: {
+            double val;
+            memcpy(&val, buffer_ptr, sizeof(double));
+            buffer_ptr += sizeof(double);
             return RpcValue(val);
         }
         case RpcValue::T_UINT64: {
@@ -409,61 +424,74 @@ namespace {
     }
 
     bool WriteToCircularBuffer(ignition::rpc::CircularBuffer& cb, const std::vector<char>& data) {
+        // Acquire spin-lock
+        while (cb.lock.test_and_set(std::memory_order_acquire)) {}
+
         const size_t message_size = data.size();
         const size_t total_size = sizeof(size_t) + message_size;
 
-        size_t head = cb.head.load(std::memory_order_acquire);
-        size_t tail = cb.tail.load(std::memory_order_relaxed);
-
         size_t free_space;
-        if (head <= tail) {
-            free_space = ignition::rpc::SHM_BUFFER_SIZE - (tail - head);
+        if (cb.head <= cb.tail) {
+            free_space = ignition::rpc::SHM_BUFFER_SIZE - (cb.tail - cb.head);
         } else {
-            free_space = head - tail;
+            free_space = cb.head - cb.tail;
         }
 
         if (total_size >= free_space) {
+            cb.lock.clear(std::memory_order_release);
             return false; // Not enough space
         }
 
         // Write message size
-        size_t current_tail = tail;
+        size_t current_tail = cb.tail;
         write_data_to_buffer(cb, current_tail, &message_size, sizeof(size_t));
 
         // Write message data (potentially wrapping around)
         write_data_to_buffer(cb, current_tail, data.data(), message_size);
 
-        cb.tail.store(current_tail, std::memory_order_release);
+        cb.tail = current_tail;
+
+        cb.lock.clear(std::memory_order_release);
         return true;
     }
 
     bool ReadFromCircularBuffer(ignition::rpc::CircularBuffer& cb, std::vector<char>& data) {
-        try
-        {
-            size_t head = cb.head.load(std::memory_order_relaxed);
-            size_t tail = cb.tail.load(std::memory_order_acquire);
+        // Acquire spin-lock
+        while (cb.lock.test_and_set(std::memory_order_acquire)) {}
 
-            if (head == tail) {
-                return false; // Buffer is empty
+        bool hasRead = false;
+
+        do {
+            try
+            {
+                if (cb.head == cb.tail) {
+                    cb.lock.clear(std::memory_order_release);
+                    break;
+                }
+
+                // Read message size
+                size_t message_size;
+                size_t current_head = cb.head;
+                read_data_from_buffer(cb, current_head, &message_size, sizeof(size_t));
+
+                data.resize(message_size);
+
+                // Read message data (potentially wrapping around)
+                read_data_from_buffer(cb, current_head, data.data(), message_size);
+
+                cb.head = current_head;
+
+                hasRead = true;
             }
+            catch (...) {
+                std::cerr << "Exception in ReadFromCircularBuffer" << std::endl;
+                cb.lock.clear(std::memory_order_release);
+                break;
+            }
+        } while (false);
 
-            // Read message size
-            size_t message_size;
-            size_t current_head = head;
-            read_data_from_buffer(cb, current_head, &message_size, sizeof(size_t));
-
-            data.resize(message_size);
-
-            // Read message data (potentially wrapping around)
-            read_data_from_buffer(cb, current_head, data.data(), message_size);
-
-            cb.head.store(current_head, std::memory_order_release);
-            return true;
-        }
-        catch (...) {
-            std::cerr << "Exception in ReadFromCircularBuffer" << std::endl;
-            return false;
-        }
+        cb.lock.clear(std::memory_order_release);
+        return hasRead;
     }
 }
 
@@ -472,7 +500,7 @@ void RpcSystem::ListenLoop() {
     ignition::rpc::CircularBuffer* pReadBuffer = is_server_ ? pC2S_Buffer_ : pS2C_Buffer_;
     
     while (running_) {
-        DWORD waitResult = WaitForSingleObject(hDataAvailable, INFINITE); // Wait for 100ms
+        DWORD waitResult = WaitForSingleObject(hDataAvailable, INFINITE);
 
         if (!running_) {
             break;
@@ -483,15 +511,10 @@ void RpcSystem::ListenLoop() {
         }
 
         if (waitResult == WAIT_OBJECT_0) {
-            // Acquire spin-lock
-            while (pReadBuffer->lock.test_and_set(std::memory_order_acquire)) {} // spin
-
             std::vector<char> message;
             while (ReadFromCircularBuffer(*pReadBuffer, message)) {
                 ProcessMessage(message);
             }
-
-            pReadBuffer->lock.clear(std::memory_order_release);
 
         } else {
             // Error or abandoned wait
@@ -531,11 +554,6 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
 
         // Enqueue the task to be executed by the thread pool
         EnqueueTask([func_name, args, callId] {
-            // {
-            //     std::lock_guard<std::mutex> lock(cout_mutex_);
-            //     std::cout << "RPC call to " << func_name << " with call id " << callId << std::endl;
-            // }
-
             RpcValue return_val;
             try {
                 RpcFunction func;
@@ -566,22 +584,12 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
             Serializer::serialize(return_buffer, return_val);
 
             SendRPCMessage(return_buffer);
-
-            // {
-            //     std::lock_guard<std::mutex> lock(cout_mutex_);
-            //     std::cout << "Finished RPC call to " << func_name << " with call id " << callId << std::endl;
-            // }
         });
 
     } else if (msg_type == 'R') { // Return
         uint32_t callId;
         memcpy(&callId, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
-
-        // {
-        //     std::lock_guard<std::mutex> lock(cout_mutex_);
-        //     std::cout << "RPC return received for call id " << callId << std::endl;
-        // }
 
         RpcValue val = Serializer::deserialize(ptr, end_ptr);
         
@@ -624,11 +632,7 @@ void RpcSystem::SendRPCMessage(const std::vector<char>& buffer) {
     ignition::rpc::CircularBuffer* pWriteBuffer = is_server_ ? pS2C_Buffer_ : pC2S_Buffer_;
     HANDLE hDataAvailable = is_server_ ? hS2C_DataAvailableEvent_ : hC2S_DataAvailableEvent_;
 
-    // Acquire spin-lock
-    while (pWriteBuffer->lock.test_and_set(std::memory_order_acquire)) {} // spin
-
     bool success = WriteToCircularBuffer(*pWriteBuffer, buffer);
-    pWriteBuffer->lock.clear(std::memory_order_release);
 
     if (success) {
         SetEvent(hDataAvailable);
