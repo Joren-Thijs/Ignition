@@ -11,26 +11,26 @@ void *(*pfnHmdDriverFactory)(const char *pInterfaceName, int *pReturnCode) = nul
 // Global pointer to the provider so we can register it.
 RpcServerTrackedDeviceProvider* g_pRpcProvider = nullptr;
 
-void RegisterClasses() {
-    RpcSystem::RegisterClass<RpcServerTrackedDeviceProvider>();
-    RpcSystem::RegisterClass<ClientContextManager>();
-    RpcSystem::RegisterClass<RpcDriverHost>();
-    RpcSystem::RegisterClass<RpcDriverLog>();
-    RpcSystem::RegisterClass<RpcSettings>();
-    RpcSystem::RegisterClass<RpcTrackedDeviceServerDriver>();
-    RpcSystem::RegisterClass<RpcDriverInput>();
-    RpcSystem::RegisterClass<RpcDriverManager>();
-    RpcSystem::RegisterClass<RpcProperties>();
-    RpcSystem::RegisterClass<RpcResources>();
-    RpcSystem::RegisterClass<RpcDisplayComponent>();
-    RpcSystem::RegisterClass<RpcCameraComponent>();
+void RegisterRPCClasses() {
+    RpcSystem::RegisterRPCClass<RpcServerTrackedDeviceProvider>();
+    RpcSystem::RegisterRPCClass<ClientContextManager>();
+    RpcSystem::RegisterRPCClass<RpcDriverHost>();
+    RpcSystem::RegisterRPCClass<RpcDriverLog>();
+    RpcSystem::RegisterRPCClass<RpcSettings>();
+    RpcSystem::RegisterRPCClass<RpcTrackedDeviceServerDriver>();
+    RpcSystem::RegisterRPCClass<RpcDriverInput>();
+    RpcSystem::RegisterRPCClass<RpcDriverManager>();
+    RpcSystem::RegisterRPCClass<RpcProperties>();
+    RpcSystem::RegisterRPCClass<RpcResources>();
+    RpcSystem::RegisterRPCClass<RpcDisplayComponent>();
+    RpcSystem::RegisterRPCClass<RpcCameraComponent>();
 }
 
 #define HARDCODED_DRIVER_PATH
 
 int main(int argc, char *argv[])
 {
-  
+
   std::cout << "Ignition server starting..." << std::endl;
 
   if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
   }
 
   RpcSystem::Initialize("ignition_pipe");
-  RegisterClasses();
+  RegisterRPCClasses();
 
   HMODULE hModule;
 #ifdef HARDCODED_DRIVER_PATH

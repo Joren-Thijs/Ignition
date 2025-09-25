@@ -1,7 +1,10 @@
 #include "vr_rpc_interfaces.h"
 #include <iostream>
 #include <vector>
+
+#if _WIN32
 #include <windows.h>
+#endif
 
 bool hasStubbed = false;
 
@@ -136,6 +139,7 @@ void RpcServerTrackedDeviceProvider::RunFrame() {
         real_provider_->RunFrame();
 
         if (!hasStubbed) {
+#if _WIN32
             // Stub out code at 0x11d0c0 with a ret in driver_playstation_vr2_orig.dll to avoid crash.
             HMODULE hModuleo = LoadLibraryW(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2_orig.dll");
 
@@ -161,6 +165,7 @@ void RpcServerTrackedDeviceProvider::RunFrame() {
             }
 
             hasStubbed = true;
+#endif
         }
     }
 }

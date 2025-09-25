@@ -1,6 +1,5 @@
 #pragma once
 
-#include <windows.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -125,7 +124,7 @@ public:
 
     // Register a class type and its proxy factory.
     template<typename T>
-    static void RegisterClass() { GetInstance()._RegisterClass<T>(); }
+    static void RegisterRPCClass() { GetInstance()._RegisterRPCClass<T>(); }
 
     // Call a remote standalone function.
     template<typename... Args>
@@ -170,7 +169,7 @@ private:
     void _InitializeThreadPool(size_t num_threads);
     void _RegisterFunction(const std::string& name, RpcFunction func);
     void _UnregisterFunction(const std::string& name);
-    template<typename T> void _RegisterClass();
+    template<typename T> void _RegisterRPCClass();
     template<typename... Args> RpcValue _Call(const std::string& funcName, Args... args);
     template<typename... Args> RpcValue _CallMethod(RpcObjectId objId, const std::string& methodName, Args... args);
     void _StartServer();
@@ -239,7 +238,7 @@ public:
 // --- Template & Inline Implementations ---
 
 template<typename T>
-void RpcSystem::_RegisterClass() {
+void RpcSystem::_RegisterRPCClass() {
     T dummy_for_name(1); // Create a dummy proxy to get the class name
     const std::string& className = dummy_for_name.GetRpcClassName();
 

@@ -12,8 +12,6 @@ add_library(driver_ignition SHARED
   driver.cpp
 )
 
-target_compile_definitions(driver_ignition PUBLIC -DNOMINMAX)
-
 target_link_libraries(driver_ignition PRIVATE ignition_common ipc_ignition_static)
 
 set_target_properties(driver_ignition PROPERTIES LINKER_LANGUAGE CXX)

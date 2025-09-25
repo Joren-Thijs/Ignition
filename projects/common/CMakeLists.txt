@@ -20,8 +20,6 @@ add_library(ignition_common STATIC
     rpc_resources.cpp
 )
 
-target_compile_definitions(ignition_common PUBLIC -DNOMINMAX)
-
 target_include_directories(ignition_common PUBLIC 
     ${CMAKE_SOURCE_DIR}/externals/openvr 
     ${CMAKE_CURRENT_SOURCE_DIR}

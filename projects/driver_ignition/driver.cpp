@@ -6,19 +6,19 @@
 
 static RpcServerTrackedDeviceProvider* g_pProviderProxy = nullptr;
 
-void RegisterClasses() {
-    RpcSystem::RegisterClass<RpcServerTrackedDeviceProvider>();
-    RpcSystem::RegisterClass<ClientContextManager>();
-    RpcSystem::RegisterClass<RpcDriverHost>();
-    RpcSystem::RegisterClass<RpcDriverLog>();
-    RpcSystem::RegisterClass<RpcSettings>();
-    RpcSystem::RegisterClass<RpcTrackedDeviceServerDriver>();
-    RpcSystem::RegisterClass<RpcDriverInput>();
-    RpcSystem::RegisterClass<RpcDriverManager>();
-    RpcSystem::RegisterClass<RpcProperties>();
-    RpcSystem::RegisterClass<RpcResources>();
-    RpcSystem::RegisterClass<RpcDisplayComponent>();
-    RpcSystem::RegisterClass<RpcCameraComponent>();
+void RegisterRPCClasses() {
+    RpcSystem::RegisterRPCClass<RpcServerTrackedDeviceProvider>();
+    RpcSystem::RegisterRPCClass<ClientContextManager>();
+    RpcSystem::RegisterRPCClass<RpcDriverHost>();
+    RpcSystem::RegisterRPCClass<RpcDriverLog>();
+    RpcSystem::RegisterRPCClass<RpcSettings>();
+    RpcSystem::RegisterRPCClass<RpcTrackedDeviceServerDriver>();
+    RpcSystem::RegisterRPCClass<RpcDriverInput>();
+    RpcSystem::RegisterRPCClass<RpcDriverManager>();
+    RpcSystem::RegisterRPCClass<RpcProperties>();
+    RpcSystem::RegisterRPCClass<RpcResources>();
+    RpcSystem::RegisterRPCClass<RpcDisplayComponent>();
+    RpcSystem::RegisterRPCClass<RpcCameraComponent>();
 }
 
 HMD_DLL_EXPORT
@@ -28,7 +28,7 @@ void *HmdDriverFactory(const char *pInterfaceName, int *pReturnCode) {
     if (!s_initialized) {
         s_initialized = true;
         RpcSystem::Initialize("ignition_pipe");
-        RegisterClasses();
+        RegisterRPCClasses();
     }
 
     // Attempt to connect if not already connected
