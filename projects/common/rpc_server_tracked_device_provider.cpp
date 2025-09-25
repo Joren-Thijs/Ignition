@@ -11,7 +11,7 @@ RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(vr::IServerTracke
     if (!IsProxy()) {
         std::string prefix = std::to_string(GetId()) + ".";
 
-        RpcSystem::RegisterFunction(prefix + "Init", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "Init", [this](const auto& args) {
             // The server receives the proxy to the client's context manager
             ClientContextManager* context_proxy = static_cast<ClientContextManager*>(args[0].asObject());
             
@@ -20,31 +20,31 @@ RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(vr::IServerTracke
             return RpcValue((int)result);
         });
         
-        RpcSystem::RegisterFunction(prefix + "ShouldBlockStandbyMode", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "ShouldBlockStandbyMode", [this](const auto& args) {
             return RpcValue((int)this->ShouldBlockStandbyMode());
         });
         
-        RpcSystem::RegisterFunction(prefix + "Cleanup", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "Cleanup", [this](const auto& args) {
             this->Cleanup();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "RunFrame", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "RunFrame", [this](const auto& args) {
             this->RunFrame();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args) {
             this->EnterStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "LeaveStandby", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "LeaveStandby", [this](const auto& args) {
             this->LeaveStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetInterfaceVersions", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetInterfaceVersions", [this](const auto& args) {
             const char *const *versions = this->GetInterfaceVersions();
             if (!versions) {
                 return RpcValue();
@@ -61,6 +61,8 @@ RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(vr::IServerTracke
 }
 
 RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(RpcObjectId id) : RpcObject(id), real_provider_(nullptr) {}
+
+RpcServerTrackedDeviceProvider::~RpcServerTrackedDeviceProvider() {}
 
 const std::string& RpcServerTrackedDeviceProvider::GetRpcClassName() const {
     static const std::string name = "IServerTrackedDeviceProvider";
@@ -135,27 +137,27 @@ void RpcServerTrackedDeviceProvider::RunFrame() {
 
         if (!hasStubbed) {
             // Stub out code at 0x11d0c0 with a ret in driver_playstation_vr2_orig.dll to avoid crash.
-            HMODULE hModuleo = LoadLibraryW(L"C:\\ Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2_orig.dll");
+            HMODULE hModuleo = LoadLibraryW(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2_orig.dll");
 
             void* function = reinterpret_cast<char*>(hModuleo) + 0x11d0c0;
             DWORD oldProtect;
             if (!VirtualProtect(function, 1, PAGE_EXECUTE_READWRITE, &oldProtect
             )) {
-                printf("VirtualProtect failed: %d\n", GetLastError());
+                std::cout << "VirtualProtect failed: " << GetLastError() << std::endl;
             }
             unsigned char retInstruction = 0xC3; // x86 RET instruction
             SIZE_T bytesWritten;
             if (!WriteProcessMemory(GetCurrentProcess(), function, &retInstruction, 1, 
                 &bytesWritten) || bytesWritten != 1) {
-                printf("WriteProcessMemory failed: %d\n", GetLastError());
+                std::cout << "WriteProcessMemory failed: " << GetLastError() << std::endl;
             }
             if (!VirtualProtect(function, 1, oldProtect, &oldProtect)) {
-                printf("VirtualProtect restore failed: %d\n", GetLastError());
+                std::cout << "VirtualProtect restore failed: " << GetLastError() << std::endl;
             }
 
             // Flush instruction cache to ensure modified code is used.
             if (!FlushInstructionCache(GetCurrentProcess(), function, 1)) {
-                printf("FlushInstructionCache failed: %d\n", GetLastError());
+                std::cout << "FlushInstructionCache failed: " << GetLastError() << std::endl;
             }
 
             hasStubbed = true;

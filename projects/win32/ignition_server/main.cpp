@@ -30,7 +30,7 @@ void RegisterClasses() {
 
 int main(int argc, char *argv[])
 {
-  printf("Starting ignition_server...\n");
+  std::cout << "Ignition server starting..." << std::endl;
 
   if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
       printf("Failed to initialize COM.\n");
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 #else
   if (argc < 2)
   {
-    printf("usage: ignition_server.exe <driver path>\n");
+    std::cout << "Usage: ignition_server <path to driver DLL>" << std::endl;
     return 1;
   }
   hModule = LoadLibraryA(argv[1]);
@@ -54,14 +54,14 @@ int main(int argc, char *argv[])
 
   if (!hModule)
   {
-    printf("Failed to load driver. LastError = %i\n", GetLastError());
+    std::cout << "Failed to load driver DLL. Error: " << GetLastError() << std::endl;
     return -1;
   }
 
   pfnHmdDriverFactory = decltype(pfnHmdDriverFactory)(GetProcAddress(hModule, "HmdDriverFactory"));
   if (!pfnHmdDriverFactory)
   {
-      printf("Failed to find HmdDriverFactory in driver DLL.\n");
+      std::cout << "Failed to get HmdDriverFactory address. Error: " << GetLastError() << std::endl;
       return -1;
   }
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
   
   if (returnCode != vr::VRInitError_None || !pRealDeviceProvider)
   {
-    printf("HmdDriverFactory failed to get device provider interface. Code: %d\n", returnCode);
+    std::cout << "HmdDriverFactory failed to get IServerTrackedDeviceProvider. Error: " << returnCode << std::endl;
     return -1;
   }
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     return val;
   });
   
-  printf("Ignition server is running. Waiting for client driver to connect...\n");
+  std::cout << "Ignition server running. Waiting for client to connect..." << std::endl;
 
   while (RpcSystem::IsConnected())
   {
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     Sleep(1000);
   }
 
-  printf("Client disconnected. Shutting down.\n");
+  std::cout << "Client disconnected, shutting down." << std::endl;
   
   delete g_pRpcProvider;
   RpcSystem::Shutdown();

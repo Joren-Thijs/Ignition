@@ -7,32 +7,32 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(vr::ITrackedDeviceSer
     if (!IsProxy()) {
         std::string prefix = std::to_string(GetId()) + ".";
 
-        RpcSystem::RegisterFunction(prefix + "Activate", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "Activate", [this](const auto& args) {
             return RpcValue((int)this->Activate(args[0].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "Deactivate", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "Deactivate", [this](const auto& args) {
             this->Deactivate();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args) {
             this->EnterStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "DebugRequest", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "DebugRequest", [this](const auto& args) {
             char response_buf[vr::k_unMaxDriverDebugResponseSize];
             this->DebugRequest(args[0].asString().c_str(), response_buf, sizeof(response_buf));
             return RpcValue(std::string(response_buf));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetPose", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetPose", [this](const auto& args) {
             vr::DriverPose_t pose = this->GetPose();
             return RpcValue((const char*)&pose, sizeof(pose));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetComponent", [this](const auto& args) {
             auto componentNameStr = args[0].asString();
             const char* componentName = componentNameStr.c_str();
             void* component = this->GetComponent(componentName);
@@ -41,19 +41,7 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(vr::ITrackedDeviceSer
                 return RpcValue(); // Return null RpcValue
             }
 
-            RpcObject* rpc_wrapper = nullptr;
-            std::string interface_str = componentName;
-
-            if (interface_str == vr::IVRDisplayComponent_Version) {
-                rpc_wrapper = new RpcDisplayComponent(static_cast<vr::IVRDisplayComponent*>(component));
-            } else if (interface_str == vr::IVRCameraComponent_Version) {
-                rpc_wrapper = new RpcCameraComponent(static_cast<vr::IVRCameraComponent*>(component));
-            } else {
-                std::cerr << "Warning: GetComponent returned unknown interface " << interface_str << std::endl;
-                return RpcValue(); // Unknown interface
-            }
-
-            return RpcValue(rpc_wrapper);
+            return RpcValue(dynamic_cast<RpcObject*>((RpcObject*)component));
         });
     }
 }
@@ -112,7 +100,6 @@ void *RpcTrackedDeviceServerDriver::GetComponent(const char *pchComponentNameAnd
             } else if (interface_str == vr::IVRCameraComponent_Version) {
                 return dynamic_cast<vr::IVRCameraComponent*>(obj);
             }
-            // Add other component types here as needed
         }
         return nullptr;
     }
@@ -145,7 +132,7 @@ void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pc
         if (!pchResponseBuffer || unResponseBufferSize == 0) return;
         RpcValue result = RpcSystem::CallMethod(GetId(), "DebugRequest", RpcValue(std::string(pchRequest)));
         std::string response = result.asString();
-        strncpy(pchResponseBuffer, response.c_str(), unResponseBufferSize);
+        memcpy_s(pchResponseBuffer, unResponseBufferSize, response.c_str(), std::min(static_cast<size_t>(unResponseBufferSize - 1), response.length()));
         pchResponseBuffer[unResponseBufferSize - 1] = '\0';
     }
     else {

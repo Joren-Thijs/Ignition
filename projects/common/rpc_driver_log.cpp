@@ -6,7 +6,7 @@
 RpcDriverLog::RpcDriverLog(vr::IVRDriverLog* real) : RpcObject(), real_log_(real) {
     if (!IsProxy()) {
         std::string prefix = std::to_string(GetId()) + ".";
-        RpcSystem::RegisterFunction(prefix + "Log", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "Log", [this](const auto& args) {
             this->Log(args[0].asString().c_str());
             return RpcValue();
         });

@@ -22,7 +22,7 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
             return RpcValue(result);
         });
         
-        RpcSystem::RegisterFunction(prefix + "TrackedDeviceToPropertyContainer", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "TrackedDeviceToPropertyContainer", [this](const auto& args) {
             vr::PropertyContainerHandle_t handle = this->TrackedDeviceToPropertyContainer((vr::TrackedDeviceIndex_t)args[0].asInt());
             return RpcValue(static_cast<uint64_t>(handle));
         });

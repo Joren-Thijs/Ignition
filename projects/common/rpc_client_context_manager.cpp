@@ -8,7 +8,7 @@ ClientContextManager::ClientContextManager(vr::IVRDriverContext *real_context) :
     if (!IsProxy()) { // This is the real object on the client side
         std::string prefix = std::to_string(GetId()) + ".";
 
-        RpcSystem::RegisterFunction(prefix + "GetGenericInterface", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetGenericInterface", [this](const auto& args) {
             vr::EVRInitError err;
             return RpcValue(static_cast<RpcObject*>(this->GetGenericInterface(args[0].asString().c_str(), &err)));
         });

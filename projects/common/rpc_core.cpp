@@ -300,11 +300,11 @@ void RpcSystem::ShutdownThreadPool() {
         std::unique_lock<std::mutex> lock(thread_pool_mutex_);
         stop_thread_pool_ = true;
     }
+
     thread_pool_cv_.notify_all();
     for (std::thread& worker : worker_threads_) {
         worker.join();
     }
-    worker_threads_.clear();
 }
 
 bool RpcSystem::IsConnected() {
@@ -465,7 +465,6 @@ namespace {
             try
             {
                 if (cb.head == cb.tail) {
-                    cb.lock.clear(std::memory_order_release);
                     break;
                 }
 
@@ -485,7 +484,6 @@ namespace {
             }
             catch (...) {
                 std::cerr << "Exception in ReadFromCircularBuffer" << std::endl;
-                cb.lock.clear(std::memory_order_release);
                 break;
             }
         } while (false);

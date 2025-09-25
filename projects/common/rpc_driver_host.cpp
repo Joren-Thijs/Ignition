@@ -18,7 +18,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue((int)result);
         });
 
-        RpcSystem::RegisterFunction(prefix + "TrackedDevicePoseUpdated", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "TrackedDevicePoseUpdated", [this](const auto& args) {
             uint32_t which_device = (uint32_t)args[0].asInt();
             auto pose_data = args[1].asPointer();
             vr::DriverPose_t new_pose;
@@ -30,7 +30,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "VendorSpecificEvent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "VendorSpecificEvent", [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto eventType = (vr::EVREventType)args[1].asInt();
             auto eventDataPair = args[2].asPointer();
@@ -45,26 +45,26 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "VsyncEvent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "VsyncEvent", [this](const auto& args) {
             this->VsyncEvent(args[0].asDouble());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "IsExiting", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "IsExiting", [this](const auto& args) {
             return RpcValue((int)this->IsExiting());
         });
 
-        RpcSystem::RegisterFunction(prefix + "RequestRestart", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "RequestRestart", [this](const auto& args) {
             this->RequestRestart(args[0].asString().c_str(), args[1].asString().c_str(), args[2].asString().c_str(), args[3].asString().c_str());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetRecommendedRenderTargetSize", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetRecommendedRenderTargetSize", [this](const auto& args) {
             this->SetRecommendedRenderTargetSize((uint32_t)args[0].asInt(), (uint32_t)args[1].asInt(), (uint32_t)args[2].asInt());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "PollNextEvent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "PollNextEvent", [this](const auto& args) {
             vr::VREvent_t event;
 
             int expected_size = args[0].asInt();
@@ -76,7 +76,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue(); // Return null on no event
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetRawTrackedDevicePoses", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetRawTrackedDevicePoses", [this](const auto& args) {
             float fPredictedSecondsFromNow = args[0].asFloat();
             uint32_t unTrackedDevicePoseArrayCount = (uint32_t)args[1].asInt();
 
@@ -89,7 +89,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetFrameTimings", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetFrameTimings", [this](const auto& args) {
             uint32_t nFrames = (uint32_t)args[0].asInt();
 
             if (nFrames > 0) {
@@ -102,7 +102,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetDisplayEyeToHead", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetDisplayEyeToHead", [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto leftEyeData = args[1].asPointer();
             auto rightEyeData = args[2].asPointer();
@@ -114,7 +114,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetDisplayProjectionRaw", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetDisplayProjectionRaw", [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto leftEyeData = args[1].asPointer();
             auto rightEyeData = args[2].asPointer();

@@ -7,7 +7,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
     if (!IsProxy()) {
         std::string prefix = std::to_string(GetId()) + ".";
 
-        RpcSystem::RegisterFunction(prefix + "CreateBooleanComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreateBooleanComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string pchName_str = args[1].asString();
             vr::EVRInputError err = this->CreateBooleanComponent((vr::PropertyContainerHandle_t)args[0].asUint64(), pchName_str.c_str(), &handle);
@@ -17,12 +17,12 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "UpdateBooleanComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "UpdateBooleanComponent", [this](const auto& args) {
             vr::EVRInputError err = this->UpdateBooleanComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asInt(), args[2].asDouble());
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "CreateScalarComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreateScalarComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string pchName_str = args[1].asString();
             vr::EVRInputError err = this->CreateScalarComponent((vr::PropertyContainerHandle_t)args[0].asUint64(), pchName_str.c_str(), &handle, (vr::EVRScalarType)args[2].asInt(), (vr::EVRScalarUnits)args[3].asInt());
@@ -32,12 +32,12 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "UpdateScalarComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "UpdateScalarComponent", [this](const auto& args) {
             vr::EVRInputError err = this->UpdateScalarComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), args[1].asFloat(), args[2].asDouble());
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "CreateHapticComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreateHapticComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string pchName_str = args[1].asString();
             vr::EVRInputError err = this->CreateHapticComponent((vr::PropertyContainerHandle_t)args[0].asUint64(), pchName_str.c_str(), &handle);
@@ -47,7 +47,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "CreateSkeletonComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreateSkeletonComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string name_str = args[1].asString();
             const std::string skeleton_path_str = args[2].asString();
@@ -67,13 +67,13 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "UpdateSkeletonComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "UpdateSkeletonComponent", [this](const auto& args) {
             auto transforms_data = args[2].asPointer();
             vr::EVRInputError err = this->UpdateSkeletonComponent( (vr::VRInputComponentHandle_t)args[0].asUint64(), (vr::EVRSkeletalMotionRange)args[1].asInt(), (const vr::VRBoneTransform_t *)transforms_data.first, (uint32_t)args[3].asInt() );
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "CreatePoseComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreatePoseComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string pchName_str = args[1].asString();
             vr::EVRInputError err = this->CreatePoseComponent((vr::PropertyContainerHandle_t)args[0].asUint64(), pchName_str.c_str(), &handle);
@@ -83,12 +83,12 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "UpdatePoseComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "UpdatePoseComponent", [this](const auto& args) {
             vr::EVRInputError err = this->UpdatePoseComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::HmdMatrix34_t*)args[1].asPointer().first, args[2].asDouble());
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "CreateEyeTrackingComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "CreateEyeTrackingComponent", [this](const auto& args) {
             vr::VRInputComponentHandle_t handle = vr::k_ulInvalidInputComponentHandle;
             const std::string pchName_str = args[1].asString();
             vr::EVRInputError err = this->CreateEyeTrackingComponent((vr::PropertyContainerHandle_t)args[0].asUint64(), pchName_str.c_str(), &handle);
@@ -98,7 +98,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             return RpcValue(buffer.data(), buffer.size());
         });
         
-        RpcSystem::RegisterFunction(prefix + "UpdateEyeTrackingComponent", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "UpdateEyeTrackingComponent", [this](const auto& args) {
             const auto& arg = args[1].asPointer();
             if(arg.second != sizeof(vr::VREyeTrackingData_t)) {
                 return RpcValue((int)vr::VRInputError_InvalidParam);

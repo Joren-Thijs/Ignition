@@ -128,7 +128,7 @@ const char *RpcSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eErro
         RpcValue result = RpcSystem::CallMethod(GetId(), "GetSettingsErrorNameFromEnum", RpcValue((int)eError));
         std::string name = result.asString();
         error_name_cache_[eError] = name;
-        return name.c_str();
+        return error_name_cache_[eError].c_str();
     }
     else {
         return real_settings_->GetSettingsErrorNameFromEnum(eError);

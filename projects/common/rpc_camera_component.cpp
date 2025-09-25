@@ -7,7 +7,7 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
     if (!IsProxy()) {
         std::string prefix = std::to_string(GetId()) + ".";
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraFrameDimensions", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraFrameDimensions", [this](const auto& args) {
             uint32_t w, h;
             if (this->GetCameraFrameDimensions((vr::ECameraVideoStreamFormat)args[0].asInt(), &w, &h)) {
                 uint32_t data[] = {w, h};
@@ -16,7 +16,7 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
         
-        RpcSystem::RegisterFunction(prefix + "GetCameraFrameBufferingRequirements", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraFrameBufferingRequirements", [this](const auto& args) {
             int queue_size;
             uint32_t data_size;
             if (this->GetCameraFrameBufferingRequirements(&queue_size, &data_size)) {
@@ -26,16 +26,16 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "StartVideoStream", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "StartVideoStream", [this](const auto& args) {
             return RpcValue((int)this->StartVideoStream());
         });
 
-        RpcSystem::RegisterFunction(prefix + "StopVideoStream", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "StopVideoStream", [this](const auto& args) {
             this->StopVideoStream();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "IsVideoStreamActive", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "IsVideoStreamActive", [this](const auto& args) {
             bool paused;
             float elapsed;
             if (this->IsVideoStreamActive(&paused, &elapsed)) {
@@ -45,27 +45,27 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetCameraVideoStreamFormat", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetCameraVideoStreamFormat", [this](const auto& args) {
             return RpcValue((int)this->SetCameraVideoStreamFormat((vr::ECameraVideoStreamFormat)args[0].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraVideoStreamFormat", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraVideoStreamFormat", [this](const auto& args) {
             return RpcValue((int)this->GetCameraVideoStreamFormat());
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetAutoExposure", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetAutoExposure", [this](const auto& args) {
             return RpcValue((int)this->SetAutoExposure(args[0].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "PauseVideoStream", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "PauseVideoStream", [this](const auto& args) {
             return RpcValue((int)this->PauseVideoStream());
         });
 
-        RpcSystem::RegisterFunction(prefix + "ResumeVideoStream", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "ResumeVideoStream", [this](const auto& args) {
             return RpcValue((int)this->ResumeVideoStream());
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraDistortion", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraDistortion", [this](const auto& args) {
             float out_u, out_v;
             if (this->GetCameraDistortion((uint32_t)args[0].asInt(), args[1].asFloat(), args[2].asFloat(), &out_u, &out_v)) {
                 float data[] = {out_u, out_v};
@@ -74,7 +74,7 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraProjection", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraProjection", [this](const auto& args) {
             vr::HmdMatrix44_t proj;
             if (this->GetCameraProjection((uint32_t)args[0].asInt(), (vr::EVRTrackedCameraFrameType)args[1].asInt(), args[2].asFloat(), args[3].asFloat(), &proj)) {
                 return RpcValue((const char*)&proj, sizeof(proj));
@@ -82,11 +82,11 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetFrameRate", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetFrameRate", [this](const auto& args) {
             return RpcValue((int)this->SetFrameRate(args[0].asInt(), args[1].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraCompatibilityMode", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraCompatibilityMode", [this](const auto& args) {
             vr::ECameraCompatibilityMode mode;
             if (this->GetCameraCompatibilityMode(&mode)) {
                 return RpcValue((int)mode);
@@ -94,11 +94,11 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetCameraCompatibilityMode", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "SetCameraCompatibilityMode", [this](const auto& args) {
             return RpcValue((int)this->SetCameraCompatibilityMode((vr::ECameraCompatibilityMode)args[0].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraFrameBounds", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraFrameBounds", [this](const auto& args) {
             uint32_t l, t, w, h;
             if (this->GetCameraFrameBounds((vr::EVRTrackedCameraFrameType)args[0].asInt(), &l, &t, &w, &h)) {
                 uint32_t data[] = {l, t, w, h};
@@ -107,7 +107,7 @@ RpcCameraComponent::RpcCameraComponent(vr::IVRCameraComponent* real) : RpcObject
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetCameraIntrinsics", [this](const auto& args){
+        RpcSystem::RegisterFunction(prefix + "GetCameraIntrinsics", [this](const auto& args) {
             vr::HmdVector2_t focal_length, center;
             vr::EVRDistortionFunctionType dist_type;
             double coeffs[vr::k_unMaxDistortionFunctionParameters];
