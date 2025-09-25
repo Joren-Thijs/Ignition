@@ -1,50 +1,15 @@
 #include "rpc_core.h"
+#include "mapped_event_circular_buffer_c.h"
 #include <stdexcept>
 #include <algorithm>
 #include <cassert>
 #include <vector>
 
-// --- Static Member Definitions for RpcSystem ---
-std::string RpcSystem::pipe_name_;
-bool RpcSystem::is_server_ = false;
-std::unique_ptr<std::thread> RpcSystem::listen_thread_;
-bool RpcSystem::running_ = false;
-
-HANDLE RpcSystem::hMapFile_ = NULL;
-void* RpcSystem::pSharedMem_ = nullptr;
-ignition::rpc::CircularBuffer* RpcSystem::pC2S_Buffer_ = nullptr;
-ignition::rpc::CircularBuffer* RpcSystem::pS2C_Buffer_ = nullptr;
-HANDLE RpcSystem::hC2S_DataAvailableEvent_ = NULL;
-HANDLE RpcSystem::hS2C_DataAvailableEvent_ = NULL;
-
-
-std::map<std::string, RpcSystem::RpcFunction> RpcSystem::function_registry_;
-std::mutex RpcSystem::registry_mutex_;
-
-std::atomic<RpcObjectId> RpcSystem::next_object_id_{1};
-std::map<RpcObjectId, RpcObject*> RpcSystem::local_objects_;
-std::map<RpcObjectId, std::unique_ptr<RpcObject>> RpcSystem::remote_proxies_;
-std::map<std::string, RpcSystem::ObjectFactory> RpcSystem::object_factories_;
-std::mutex RpcSystem::object_mutex_;
-
-std::map<uint32_t, std::shared_ptr<RpcSystem::PendingCall>> RpcSystem::pending_calls_;
-std::mutex RpcSystem::pending_calls_mutex_;
-std::atomic<uint32_t> RpcSystem::next_call_id_ = 1;
-
-std::mutex RpcSystem::send_mutex_;
-std::vector<std::thread> RpcSystem::worker_threads_;
-std::queue<std::function<void()>> RpcSystem::tasks_;
-std::mutex RpcSystem::thread_pool_mutex_;
-std::condition_variable RpcSystem::thread_pool_cv_;
-bool RpcSystem::stop_thread_pool_ = false;
-std::mutex RpcSystem::cout_mutex_;
-
-
 // --- RpcValue Implementation ---
 RpcValue::RpcValue(RpcObject* v) : type_(T_OBJECT_REF) {
     assert(v != nullptr && "Cannot construct RpcValue with a null RpcObject*");
     obj_ref_.id = v->GetId();
-    obj_ref_.class_name = &v->GetRpcClassName(); // This was missing
+    obj_ref_.class_name = &v->GetRpcClassName();
 }
 
 RpcValue::RpcValue(const RpcValue& other) : type_(other.type_) {
@@ -110,7 +75,7 @@ std::pair<const char*, size_t> RpcValue::asPointer() const {
 }
 RpcObject* RpcValue::asObject() const {
     if (!isObject()) throw std::runtime_error("RpcValue is not an object reference.");
-    return RpcSystem::FindOrCreateProxy(obj_ref_.id, *obj_ref_.class_name);
+    return RpcSystem::GetInstance()._FindOrCreateProxy(obj_ref_.id, *obj_ref_.class_name);
 }
 
 // --- RpcObject Implementation ---
@@ -237,36 +202,42 @@ RpcValue Serializer::deserialize(const char*& buffer_ptr, const char* buffer_end
 }
 
 // --- RpcSystem Static Method Implementations ---
-void RpcSystem::Initialize(const std::string& pipeName) {
+RpcSystem& RpcSystem::GetInstance() {
+    static RpcSystem instance;
+    return instance;
+}
+
+RpcSystem::RpcSystem() = default;
+
+RpcSystem::~RpcSystem() {
+    _Shutdown();
+}
+
+void RpcSystem::_Initialize(const std::string& pipeName) {
     pipe_name_ = pipeName;
     next_object_id_ = 1;
     next_call_id_ = 1;
     running_ = true;
-    InitializeThreadPool(5);
+
+    _InitializeThreadPool(5);
 }
 
-void RpcSystem::Shutdown() {
+void RpcSystem::_Shutdown() {
+    if (!running_) {
+        return;
+    }
     running_ = false;
 
-    // Wake up the listener thread so it can exit
-    if (hC2S_DataAvailableEvent_) SetEvent(hC2S_DataAvailableEvent_);
-    if (hS2C_DataAvailableEvent_) SetEvent(hS2C_DataAvailableEvent_);
+    _ShutdownThreadPool();
 
-    ShutdownThreadPool();
-
+    // The listen thread might be waiting on the circular buffer.
+    // A robust shutdown would signal the event or close the handle to wake it up.
     if (listen_thread_ && listen_thread_->joinable()) {
         listen_thread_->join();
     }
-    // Cleanup shared memory and sync objects
-    if (pSharedMem_) UnmapViewOfFile(pSharedMem_);
-    if (hMapFile_) CloseHandle(hMapFile_);
-    if (hC2S_DataAvailableEvent_) CloseHandle(hC2S_DataAvailableEvent_);
-    if (hS2C_DataAvailableEvent_) CloseHandle(hS2C_DataAvailableEvent_);
 
-    pSharedMem_ = nullptr;
-    hMapFile_ = NULL;
-    hC2S_DataAvailableEvent_ = NULL;
-    hS2C_DataAvailableEvent_ = NULL;
+    mapped_event_circular_buffer_close_shm(pC2S_Buffer_);
+    mapped_event_circular_buffer_close_shm(pS2C_Buffer_);
     pC2S_Buffer_ = nullptr;
     pS2C_Buffer_ = nullptr;
 
@@ -274,15 +245,15 @@ void RpcSystem::Shutdown() {
     remote_proxies_.clear();
 }
 
-void RpcSystem::InitializeThreadPool(size_t num_threads) {
+void RpcSystem::_InitializeThreadPool(size_t num_threads) {
     stop_thread_pool_ = false;
     for (size_t i = 0; i < num_threads; ++i) {
-        worker_threads_.emplace_back([] {
+        worker_threads_.emplace_back([this] {
             while (true) {
                 std::function<void()> task;
                 {
                     std::unique_lock<std::mutex> lock(thread_pool_mutex_);
-                    thread_pool_cv_.wait(lock, [] { return stop_thread_pool_ || !tasks_.empty(); });
+                    thread_pool_cv_.wait(lock, [this] { return stop_thread_pool_ || !tasks_.empty(); });
                     if (stop_thread_pool_ && tasks_.empty()) {
                         return;
                     }
@@ -295,60 +266,40 @@ void RpcSystem::InitializeThreadPool(size_t num_threads) {
     }
 }
 
-void RpcSystem::ShutdownThreadPool() {
+void RpcSystem::_ShutdownThreadPool() {
     {
         std::unique_lock<std::mutex> lock(thread_pool_mutex_);
         stop_thread_pool_ = true;
     }
 
     thread_pool_cv_.notify_all();
-    for (std::thread& worker : worker_threads_) {
-        worker.join();
-    }
 }
 
-bool RpcSystem::IsConnected() {
-    return pSharedMem_ != nullptr;
+bool RpcSystem::_IsConnected() {
+    return pC2S_Buffer_ != nullptr && pS2C_Buffer_ != nullptr;
 }
 
-void RpcSystem::RegisterFunction(const std::string& name, RpcFunction func) {
+void RpcSystem::_RegisterFunction(const std::string& name, RpcFunction func) {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     function_registry_[name] = func;
 }
 
-void RpcSystem::UnregisterFunction(const std::string& name) {
+void RpcSystem::_UnregisterFunction(const std::string& name) {
      std::lock_guard<std::mutex> lock(registry_mutex_);
      function_registry_.erase(name);
 }
 
-void RpcSystem::StartServer() {
+void RpcSystem::_StartServer() {
     is_server_ = true;
-    std::string shm_name = pipe_name_ + "_shm";
-    std::string c2s_event_name = pipe_name_ + "_c2s_event";
-    std::string s2c_event_name = pipe_name_ + "_s2c_event";
+    std::string c2s_name = pipe_name_ + "_c2s";
+    std::string s2c_name = pipe_name_ + "_s2c";
 
-    hMapFile_ = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(ignition::rpc::CircularBuffer) * 2, shm_name.c_str());
-    if (hMapFile_ == NULL) throw std::runtime_error("Could not create file mapping object.");
+    pC2S_Buffer_ = mapped_event_circular_buffer_create_shm(c2s_name.c_str(), SHM_BUFFER_SIZE);
+    pS2C_Buffer_ = mapped_event_circular_buffer_create_shm(s2c_name.c_str(), SHM_BUFFER_SIZE);
 
-    pSharedMem_ = MapViewOfFile(hMapFile_, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(ignition::rpc::CircularBuffer) * 2);
-    if (pSharedMem_ == NULL) {
-        CloseHandle(hMapFile_);
-        throw std::runtime_error("Could not map view of file.");
-    }
-
-    pC2S_Buffer_ = static_cast<ignition::rpc::CircularBuffer*>(pSharedMem_);
-    pS2C_Buffer_ = pC2S_Buffer_ + 1;
-
-    // Initialize circular buffers
-    new (pC2S_Buffer_) ignition::rpc::CircularBuffer();
-    new (pS2C_Buffer_) ignition::rpc::CircularBuffer();
-
-    hC2S_DataAvailableEvent_ = CreateEventA(NULL, FALSE, FALSE, c2s_event_name.c_str());
-    hS2C_DataAvailableEvent_ = CreateEventA(NULL, FALSE, FALSE, s2c_event_name.c_str());
-
-    if (!hC2S_DataAvailableEvent_ || !hS2C_DataAvailableEvent_) {
-        Shutdown();
-        throw std::runtime_error("Failed to create synchronization objects.");
+    if (!pC2S_Buffer_ || !pS2C_Buffer_) {
+        _Shutdown();
+        throw std::runtime_error("Failed to create shared memory buffers.");
     }
 
     {
@@ -356,37 +307,20 @@ void RpcSystem::StartServer() {
         std::cout << "Shared memory server running. Waiting for client..." << std::endl;
     }
 
-    listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop);
+    listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop, this);
 }
 
-bool RpcSystem::ConnectToServer() {
+bool RpcSystem::_ConnectToServer() {
     is_server_ = false;
-    std::string shm_name = pipe_name_ + "_shm";
-    std::string c2s_event_name = pipe_name_ + "_c2s_event";
-    std::string s2c_event_name = pipe_name_ + "_s2c_event";
+    std::string c2s_name = pipe_name_ + "_c2s";
+    std::string s2c_name = pipe_name_ + "_s2c";
 
-    hMapFile_ = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm_name.c_str());
-    if (hMapFile_ == NULL) {
-        std::cerr << "Could not open file mapping object." << std::endl;
-        return false;
-    }
+    pC2S_Buffer_ = mapped_event_circular_buffer_open_shm(c2s_name.c_str(), SHM_BUFFER_SIZE);
+    pS2C_Buffer_ = mapped_event_circular_buffer_open_shm(s2c_name.c_str(), SHM_BUFFER_SIZE);
 
-    pSharedMem_ = MapViewOfFile(hMapFile_, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(ignition::rpc::CircularBuffer) * 2);
-    if (pSharedMem_ == NULL) {
-        CloseHandle(hMapFile_);
-        std::cerr << "Could not map view of file." << std::endl;
-        return false;
-    }
-
-    pC2S_Buffer_ = static_cast<ignition::rpc::CircularBuffer*>(pSharedMem_);
-    pS2C_Buffer_ = pC2S_Buffer_ + 1;
-
-    hC2S_DataAvailableEvent_ = OpenEventA(EVENT_ALL_ACCESS, FALSE, c2s_event_name.c_str());
-    hS2C_DataAvailableEvent_ = OpenEventA(EVENT_ALL_ACCESS, FALSE, s2c_event_name.c_str());
-
-    if (!hC2S_DataAvailableEvent_ || !hS2C_DataAvailableEvent_) {
-        Shutdown();
-        std::cerr << "Failed to open synchronization objects." << std::endl;
+    if (!pC2S_Buffer_ || !pS2C_Buffer_) {
+        _Shutdown();
+        std::cerr << "Failed to open shared memory buffers." << std::endl;
         return false;
     }
 
@@ -394,131 +328,37 @@ bool RpcSystem::ConnectToServer() {
         std::lock_guard<std::mutex> lock(cout_mutex_);
         std::cout << "Connected to shared memory server." << std::endl;
     }
-    listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop);
+
+    listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop, this);
     return true;
 }
 
-namespace {
-    // Helper to write data to the circular buffer, handling wrap-around.
-    void write_data_to_buffer(ignition::rpc::CircularBuffer& cb, size_t& tail, const void* src, size_t count) {
-        const char* src_bytes = static_cast<const char*>(src);
-        size_t first_chunk_size = std::min(count, ignition::rpc::SHM_BUFFER_SIZE - tail);
-        memcpy(&cb.buffer[tail], src_bytes, first_chunk_size);
-
-        if (first_chunk_size < count) {
-            memcpy(&cb.buffer[0], src_bytes + first_chunk_size, count - first_chunk_size);
-        }
-        tail = (tail + count) % ignition::rpc::SHM_BUFFER_SIZE;
-    }
-
-    // Helper to read data from the circular buffer, handling wrap-around.
-    void read_data_from_buffer(ignition::rpc::CircularBuffer& cb, size_t& head, void* dest, size_t count) {
-        char* dest_bytes = static_cast<char*>(dest);
-        size_t first_chunk_size = std::min(count, ignition::rpc::SHM_BUFFER_SIZE - head);
-        memcpy(dest_bytes, &cb.buffer[head], first_chunk_size);
-
-        if (first_chunk_size < count) {
-            memcpy(dest_bytes + first_chunk_size, &cb.buffer[0], count - first_chunk_size);
-        }
-        head = (head + count) % ignition::rpc::SHM_BUFFER_SIZE;
-    }
-
-    bool WriteToCircularBuffer(ignition::rpc::CircularBuffer& cb, const std::vector<char>& data) {
-        // Acquire spin-lock
-        while (cb.lock.test_and_set(std::memory_order_acquire)) {}
-
-        const size_t message_size = data.size();
-        const size_t total_size = sizeof(size_t) + message_size;
-
-        size_t free_space;
-        if (cb.head <= cb.tail) {
-            free_space = ignition::rpc::SHM_BUFFER_SIZE - (cb.tail - cb.head);
-        } else {
-            free_space = cb.head - cb.tail;
-        }
-
-        if (total_size >= free_space) {
-            cb.lock.clear(std::memory_order_release);
-            return false; // Not enough space
-        }
-
-        // Write message size
-        size_t current_tail = cb.tail;
-        write_data_to_buffer(cb, current_tail, &message_size, sizeof(size_t));
-
-        // Write message data (potentially wrapping around)
-        write_data_to_buffer(cb, current_tail, data.data(), message_size);
-
-        cb.tail = current_tail;
-
-        cb.lock.clear(std::memory_order_release);
-        return true;
-    }
-
-    bool ReadFromCircularBuffer(ignition::rpc::CircularBuffer& cb, std::vector<char>& data) {
-        // Acquire spin-lock
-        while (cb.lock.test_and_set(std::memory_order_acquire)) {}
-
-        bool hasRead = false;
-
-        do {
-            try
-            {
-                if (cb.head == cb.tail) {
-                    break;
-                }
-
-                // Read message size
-                size_t message_size;
-                size_t current_head = cb.head;
-                read_data_from_buffer(cb, current_head, &message_size, sizeof(size_t));
-
-                data.resize(message_size);
-
-                // Read message data (potentially wrapping around)
-                read_data_from_buffer(cb, current_head, data.data(), message_size);
-
-                cb.head = current_head;
-
-                hasRead = true;
-            }
-            catch (...) {
-                std::cerr << "Exception in ReadFromCircularBuffer" << std::endl;
-                break;
-            }
-        } while (false);
-
-        cb.lock.clear(std::memory_order_release);
-        return hasRead;
-    }
-}
-
 void RpcSystem::ListenLoop() {
-    HANDLE hDataAvailable = is_server_ ? hC2S_DataAvailableEvent_ : hS2C_DataAvailableEvent_;
-    ignition::rpc::CircularBuffer* pReadBuffer = is_server_ ? pC2S_Buffer_ : pS2C_Buffer_;
+    CircularBuffer* pReadBuffer = is_server_ ? pC2S_Buffer_ : pS2C_Buffer_;
+
+    static char message[SHM_BUFFER_SIZE];
     
     while (running_) {
-        DWORD waitResult = WaitForSingleObject(hDataAvailable, INFINITE);
+        mapped_event_circular_buffer_wait_for_data(pReadBuffer);
 
         if (!running_) {
             break;
         }
 
-        if (waitResult == WAIT_TIMEOUT) {
-            continue;
-        }
+        size_t message_size = SHM_BUFFER_SIZE;
 
-        if (waitResult == WAIT_OBJECT_0) {
-            std::vector<char> message;
-            while (ReadFromCircularBuffer(*pReadBuffer, message)) {
-                ProcessMessage(message);
-            }
-
-        } else {
-            // Error or abandoned wait
-            std::cerr << "Listener wait failed. Error: " << GetLastError() << std::endl;
-            running_ = false;
-            break;
+        while (mapped_event_circular_buffer_read(pReadBuffer, message, &message_size)) {
+            // print data as hex string for debugging
+			std::string debug_data;
+			for (size_t i = 0; i < message_size; ++i) {
+				char buf[3];
+				sprintf_s(buf, "%02X", static_cast<unsigned char>(message[i]));
+				debug_data += buf;
+			}
+            
+            ProcessMessage(std::vector<char>(message, message + message_size));
+            
+            message_size = SHM_BUFFER_SIZE;
         }
     }
 }
@@ -550,8 +390,10 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
             args.push_back(Serializer::deserialize(ptr, end_ptr));
         }
 
+        //std::cout << "Received call for function: " << func_name << " with " << arg_count << " args." << std::endl;
+
         // Enqueue the task to be executed by the thread pool
-        EnqueueTask([func_name, args, callId] {
+        EnqueueTask([this, func_name, args, callId] {
             RpcValue return_val;
             try {
                 RpcFunction func;
@@ -627,20 +469,17 @@ void RpcSystem::SendRPCMessage(const std::vector<char>& buffer) {
         return;
     }
 
-    ignition::rpc::CircularBuffer* pWriteBuffer = is_server_ ? pS2C_Buffer_ : pC2S_Buffer_;
-    HANDLE hDataAvailable = is_server_ ? hS2C_DataAvailableEvent_ : hC2S_DataAvailableEvent_;
+    CircularBuffer* pWriteBuffer = is_server_ ? pS2C_Buffer_ : pC2S_Buffer_;
 
-    bool success = WriteToCircularBuffer(*pWriteBuffer, buffer);
+    bool success = mapped_event_circular_buffer_write(pWriteBuffer, buffer.data(), buffer.size());
 
-    if (success) {
-        SetEvent(hDataAvailable);
-    } else {
+    if (!success) {
         std::cerr << "Failed to write to circular buffer (full)." << std::endl;
     }
-}
+ }
 
 // --- Object Management ---
-RpcObjectId RpcSystem::GenerateObjectId() {
+RpcObjectId RpcSystem::_GenerateObjectId() {
     // Simple increment for now. A real system might want UUIDs.
     // If this is a server, generate from the upper half of the range.
     // If a client, from the lower half. This prevents collisions.
@@ -649,17 +488,17 @@ RpcObjectId RpcSystem::GenerateObjectId() {
     return local_next_id++;
 }
 
-void RpcSystem::RegisterLocalObject(RpcObject* obj) {
+void RpcSystem::_RegisterLocalObject(RpcObject* obj) {
     std::lock_guard<std::mutex> lock(object_mutex_);
     local_objects_[obj->GetId()] = obj;
 }
 
-void RpcSystem::UnregisterLocalObject(RpcObjectId id) {
+void RpcSystem::_UnregisterLocalObject(RpcObjectId id) {
     std::lock_guard<std::mutex> lock(object_mutex_);
     local_objects_.erase(id);
 }
 
-RpcObject* RpcSystem::FindOrCreateProxy(RpcObjectId id, const std::string& className) {
+RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, const std::string& className) {
     std::lock_guard<std::mutex> lock(object_mutex_);
 
     // First, check if it's actually a local object being passed back to us

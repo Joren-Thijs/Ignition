@@ -14,4 +14,4 @@ add_executable(ignition_server
 
 target_compile_definitions(ignition_server PUBLIC -DNOMINMAX)
 
-target_link_libraries(ignition_server PRIVATE ignition_common)
+target_link_libraries(ignition_server PRIVATE ignition_common ipc_ignition)

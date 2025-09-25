@@ -26,10 +26,11 @@ void RegisterClasses() {
     RpcSystem::RegisterClass<RpcCameraComponent>();
 }
 
-#define HARDCODED_DRIVER_PATH 1
+#define HARDCODED_DRIVER_PATH
 
 int main(int argc, char *argv[])
 {
+  
   std::cout << "Ignition server starting..." << std::endl;
 
   if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {

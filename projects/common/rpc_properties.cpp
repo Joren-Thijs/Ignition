@@ -133,6 +133,7 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
         }
 
         auto response_data = result.asPointer();
+        
         const char* ptr = response_data.first;
         const char* end_ptr = ptr + response_data.second;
 
