@@ -1,4 +1,5 @@
 #include "vr_rpc_interfaces.h"
+#include <cstring>
 #include <iostream>
 
 // --- RpcTrackedDeviceServerDriver ---
@@ -132,8 +133,7 @@ void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pc
         if (!pchResponseBuffer || unResponseBufferSize == 0) return;
         RpcValue result = RpcSystem::CallMethod(GetId(), "DebugRequest", RpcValue(std::string(pchRequest)));
         std::string response = result.asString();
-        memcpy_s(pchResponseBuffer, unResponseBufferSize, response.c_str(), std::min(static_cast<size_t>(unResponseBufferSize - 1), response.length()));
-        pchResponseBuffer[unResponseBufferSize - 1] = '\0';
+        strncpy(pchResponseBuffer, response.c_str(), unResponseBufferSize);        
     }
     else {
         real_driver_->DebugRequest(pchRequest, pchResponseBuffer, unResponseBufferSize);

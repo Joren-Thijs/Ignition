@@ -17,3 +17,8 @@ target_include_directories(ipc_ignition PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_definitions(ipc_ignition_static PUBLIC -DNOMINMAX)
 target_include_directories(ipc_ignition_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+if (USING_WINE)
+    # Add ipc_ignition.spec to linker input files that so Wine can correctly export our functions.
+    target_link_libraries(ipc_ignition PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ipc_ignition.spec)
+endif()

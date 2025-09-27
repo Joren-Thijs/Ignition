@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
+if (NOT CMAKE_HOST_WIN32)
+    message("Building on non-Windows platform. Using wine.cmake toolchain.")
+    set(CMAKE_TOOLCHAIN_FILE ./wine.cmake)
+    set(USING_WINE true)
+else()
+    set(USING_WINE false)
+endif()
+
 project(ignition)
 
 # Set standard output directories for all targets in this project

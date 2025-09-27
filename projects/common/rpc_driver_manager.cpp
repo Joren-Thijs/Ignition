@@ -47,8 +47,7 @@ uint32_t RpcDriverManager::GetDriverName(vr::DriverId_t nDriver, char *pchValue,
         RpcValue result = RpcSystem::CallMethod(GetId(), "GetDriverName", RpcValue((int)nDriver));
         std::string name = result.asString();
         if (pchValue && unBufferSize > 0) {
-            memcpy_s(pchValue, unBufferSize, name.c_str(), std::min(static_cast<size_t>(unBufferSize - 1), name.length()));
-            pchValue[unBufferSize - 1] = '\0';
+            strncpy(pchValue, name.c_str(), unBufferSize);
         }
         return name.length() + 1;
     }

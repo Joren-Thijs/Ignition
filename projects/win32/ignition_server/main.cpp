@@ -26,11 +26,8 @@ void RegisterRPCClasses() {
     RpcSystem::RegisterRPCClass<RpcCameraComponent>();
 }
 
-#define HARDCODED_DRIVER_PATH
-
 int main(int argc, char *argv[])
 {
-
   std::cout << "Ignition server starting..." << std::endl;
 
   if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
@@ -75,7 +72,6 @@ int main(int argc, char *argv[])
     std::cout << "HmdDriverFactory failed to get IServerTrackedDeviceProvider. Error: " << returnCode << std::endl;
     return -1;
   }
-
   
   RpcSystem::StartServer();
 

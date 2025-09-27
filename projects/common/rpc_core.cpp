@@ -299,6 +299,7 @@ void RpcSystem::_StartServer() {
 
     if (!pC2S_Buffer_ || !pS2C_Buffer_) {
         _Shutdown();
+        std::cerr << "Failed to create shared memory buffers." << std::endl;
         throw std::runtime_error("Failed to create shared memory buffers.");
     }
 
@@ -319,8 +320,8 @@ bool RpcSystem::_ConnectToServer() {
     pS2C_Buffer_ = mapped_event_circular_buffer_open_shm(s2c_name.c_str(), SHM_BUFFER_SIZE);
 
     if (!pC2S_Buffer_ || !pS2C_Buffer_) {
-        _Shutdown();
         std::cerr << "Failed to open shared memory buffers." << std::endl;
+        _Shutdown();
         return false;
     }
 
@@ -348,14 +349,6 @@ void RpcSystem::ListenLoop() {
         size_t message_size = SHM_BUFFER_SIZE;
 
         while (mapped_event_circular_buffer_read(pReadBuffer, message, &message_size)) {
-            // print data as hex string for debugging
-			std::string debug_data;
-			for (size_t i = 0; i < message_size; ++i) {
-				char buf[3];
-				sprintf_s(buf, "%02X", static_cast<unsigned char>(message[i]));
-				debug_data += buf;
-			}
-            
             ProcessMessage(std::vector<char>(message, message + message_size));
             
             message_size = SHM_BUFFER_SIZE;

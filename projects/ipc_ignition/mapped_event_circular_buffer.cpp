@@ -1,9 +1,10 @@
 #include "mapped_event_circular_buffer.h"
 #include <algorithm>
+#include <cstring>
 #include <stdexcept>
 #include <iostream>
 
-#ifndef _WIN32
+#ifdef __WINE__
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -47,10 +48,11 @@ CircularBuffer::~CircularBuffer() {
 bool CircularBuffer::Create(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
+
+#ifndef __WINE__
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
-#ifdef _WIN32
 	hMapFile_ = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(CircularBufferData) + size, shm_name.c_str());
 	if (hMapFile_ == NULL) {
 		std::cerr << "Could not create file mapping object: " << GetLastError() << std::endl;
@@ -77,6 +79,9 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 		return false;
 	}
 #else
+	std::string shm_name = "/" + name_ + "_shm";
+	std::string event_name = "/" + name_ + "_event";
+
 	// Unlink previous instances, in case of a crash
 	shm_unlink(shm_name.c_str());
 	sem_unlink(event_name.c_str());
@@ -124,10 +129,10 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 bool CircularBuffer::Open(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
+#ifndef __WINE__
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
-#ifdef _WIN32
 	hMapFile_ = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm_name.c_str());
 	if (hMapFile_ == NULL) {
 		return false;
@@ -146,13 +151,18 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 		return false;
 	}
 #else
+	std::string shm_name = "/" + name_ + "_shm";
+	std::string event_name = "/" + name_ + "_event";
+
 	shm_fd_ = shm_open(shm_name.c_str(), O_RDWR, 0);
 	if (shm_fd_ == -1) {
+		std::cout << "Could not open shared memory object: " << errno << std::endl;
 		return false;
 	}
 
 	data_ = (CircularBufferData*)mmap(NULL, sizeof(CircularBufferData) + size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
 	if (data_ == MAP_FAILED) {
+		std::cout << "Could not map shared memory object: " << errno << std::endl;
 		close(shm_fd_);
 		shm_fd_ = -1;
 		return false;
@@ -160,6 +170,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 
 	sem_ = sem_open(event_name.c_str(), O_RDWR);
 	if (sem_ == SEM_FAILED) {
+		std::cout << "Failed to open semaphore: " << errno << std::endl;
 		munmap(data_, sizeof(CircularBufferData) + size);
 		data_ = nullptr;
 		close(shm_fd_);
@@ -172,7 +183,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 }
 
 void CircularBuffer::Close() {
-#ifdef _WIN32
+#ifndef __WINE__
 	if (data_) {
 		UnmapViewOfFile(data_);
 		data_ = nullptr;
@@ -198,8 +209,8 @@ void CircularBuffer::Close() {
 		close(shm_fd_);
 		shm_fd_ = -1;
 
-		std::string shm_name = name_ + "_shm";
-		std::string event_name = name_ + "_event";
+		std::string shm_name = "/" + name_ + "_shm";
+		std::string event_name = "/" + name_ + "_event";
 		shm_unlink(shm_name.c_str());
 		sem_unlink(event_name.c_str());
 	}
@@ -232,7 +243,7 @@ bool CircularBuffer::write(const char* data, size_t size) {
 
 	data_->lock.clear(std::memory_order_release);
 
-#ifdef _WIN32
+#ifndef __WINE__
 	SetEvent(hDataAvailableEvent_);
 #else
 	sem_post(sem_);
@@ -271,7 +282,7 @@ bool CircularBuffer::read(char* data, size_t& size) {
 }
 
 void CircularBuffer::wait_for_data() {
-#ifdef _WIN32
+#ifndef __WINE__
 	if (hDataAvailableEvent_)
 		WaitForSingleObject(hDataAvailableEvent_, INFINITE);
 #else

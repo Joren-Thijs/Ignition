@@ -47,7 +47,7 @@ uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pch
         if (result.isString()) {
             std::string res = result.asString();
             if (pchBuffer && unBufferLen > 0) {
-                memcpy_s(pchBuffer, unBufferLen, res.c_str(), std::min(static_cast<size_t>(unBufferLen - 1), res.length()));
+                strncpy(pchBuffer, res.c_str(), unBufferLen);
             }
             return res.length() + 1;
         }
@@ -64,8 +64,7 @@ uint32_t RpcResources::GetResourceFullPath(const char *pchResourceName, const ch
         if (result.isString()) {
             std::string path = result.asString();
             if (pchPathBuffer && unBufferLen > 0) {
-                memcpy_s(pchPathBuffer, unBufferLen, path.c_str(), std::min(static_cast<size_t>(unBufferLen - 1), path.length()));
-                pchPathBuffer[unBufferLen - 1] = '\0';
+                strncpy(pchPathBuffer, path.c_str(), unBufferLen);
             }
             return path.length() + 1;
         }

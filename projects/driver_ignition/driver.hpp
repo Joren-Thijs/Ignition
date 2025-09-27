@@ -2,7 +2,7 @@
 
 #include <openvr.hpp>
 
-#ifdef _WIN32
+#ifndef __WINE__
 #define HMD_DLL_EXPORT extern "C" __declspec(dllexport)
 #else
 #define HMD_DLL_EXPORT extern "C" __attribute__((visibility("default")))

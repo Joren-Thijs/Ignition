@@ -13,6 +13,7 @@
 #include <atomic>
 #include <queue>
 #include <utility>
+#include <cstring>
 
 // Forward declarations
 struct CircularBuffer;
