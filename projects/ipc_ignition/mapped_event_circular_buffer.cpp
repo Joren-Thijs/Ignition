@@ -3,6 +3,12 @@
 #include <stdexcept>
 #include <iostream>
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 namespace ignition {
 namespace ipc {
 
@@ -44,6 +50,7 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
+#ifdef _WIN32
 	hMapFile_ = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(CircularBufferData) + size, shm_name.c_str());
 	if (hMapFile_ == NULL) {
 		std::cerr << "Could not create file mapping object: " << GetLastError() << std::endl;
@@ -69,6 +76,47 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 		std::cerr << "Failed to create event: " << GetLastError() << std::endl;
 		return false;
 	}
+#else
+	// Unlink previous instances, in case of a crash
+	shm_unlink(shm_name.c_str());
+	sem_unlink(event_name.c_str());
+
+	shm_fd_ = shm_open(shm_name.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	if (shm_fd_ == -1) {
+		std::cerr << "Could not create shared memory object: " << errno << std::endl;
+		return false;
+	}
+
+	if (ftruncate(shm_fd_, sizeof(CircularBufferData) + size) == -1) {
+		std::cerr << "Could not set size of shared memory object: " << errno << std::endl;
+		close(shm_fd_);
+		shm_fd_ = -1;
+		return false;
+	}
+
+	data_ = (CircularBufferData*)mmap(NULL, sizeof(CircularBufferData) + size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
+	if (data_ == MAP_FAILED) {
+		std::cerr << "Could not map shared memory object: " << errno << std::endl;
+		close(shm_fd_);
+		shm_fd_ = -1;
+		return false;
+	}
+
+	new (data_) CircularBufferData();
+	data_->head = 0;
+	data_->tail = 0;
+	data_->lock.clear(std::memory_order_release);
+
+	sem_ = sem_open(event_name.c_str(), O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, 0);
+	if (sem_ == SEM_FAILED) {
+		std::cerr << "Failed to create semaphore: " << errno << std::endl;
+		munmap(data_, sizeof(CircularBufferData) + size);
+		data_ = nullptr;
+		close(shm_fd_);
+		shm_fd_ = -1;
+		return false;
+	}
+#endif
 
 	return true;
 }
@@ -79,6 +127,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
+#ifdef _WIN32
 	hMapFile_ = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm_name.c_str());
 	if (hMapFile_ == NULL) {
 		return false;
@@ -96,11 +145,34 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 		Close();
 		return false;
 	}
+#else
+	shm_fd_ = shm_open(shm_name.c_str(), O_RDWR, 0);
+	if (shm_fd_ == -1) {
+		return false;
+	}
+
+	data_ = (CircularBufferData*)mmap(NULL, sizeof(CircularBufferData) + size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
+	if (data_ == MAP_FAILED) {
+		close(shm_fd_);
+		shm_fd_ = -1;
+		return false;
+	}
+
+	sem_ = sem_open(event_name.c_str(), O_RDWR);
+	if (sem_ == SEM_FAILED) {
+		munmap(data_, sizeof(CircularBufferData) + size);
+		data_ = nullptr;
+		close(shm_fd_);
+		shm_fd_ = -1;
+		return false;
+	}
+#endif
 
 	return true;
 }
 
 void CircularBuffer::Close() {
+#ifdef _WIN32
 	if (data_) {
 		UnmapViewOfFile(data_);
 		data_ = nullptr;
@@ -113,6 +185,25 @@ void CircularBuffer::Close() {
 		CloseHandle(hDataAvailableEvent_);
 		hDataAvailableEvent_ = NULL;
 	}
+#else
+	if (data_) {
+		munmap(data_, sizeof(CircularBufferData) + buffer_size_);
+		data_ = nullptr;
+	}
+	if (sem_) {
+		sem_close(sem_);
+		sem_ = nullptr;
+	}
+	if (shm_fd_ != -1) {
+		close(shm_fd_);
+		shm_fd_ = -1;
+
+		std::string shm_name = name_ + "_shm";
+		std::string event_name = name_ + "_event";
+		shm_unlink(shm_name.c_str());
+		sem_unlink(event_name.c_str());
+	}
+#endif
 }
 
 bool CircularBuffer::write(const char* data, size_t size) {
@@ -140,7 +231,12 @@ bool CircularBuffer::write(const char* data, size_t size) {
 	data_->tail = current_tail;
 
 	data_->lock.clear(std::memory_order_release);
+
+#ifdef _WIN32
 	SetEvent(hDataAvailableEvent_);
+#else
+	sem_post(sem_);
+#endif
 
 	return true;
 }
@@ -175,8 +271,13 @@ bool CircularBuffer::read(char* data, size_t& size) {
 }
 
 void CircularBuffer::wait_for_data() {
+#ifdef _WIN32
 	if (hDataAvailableEvent_)
 		WaitForSingleObject(hDataAvailableEvent_, INFINITE);
+#else
+	if (sem_)
+		sem_wait(sem_);
+#endif
 }
 
 } // namespace ipc
