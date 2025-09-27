@@ -234,7 +234,10 @@ void RpcSettings::GetString(const char *pchSection, const char *pchSettingsKey, 
             if (data.second >= sizeof(vr::EVRSettingsError)) {
                 if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(data.first);
                 std::string result_str(data.first + sizeof(vr::EVRSettingsError), data.second - sizeof(vr::EVRSettingsError));
-                strncpy(pchValue, result_str.c_str(), unValueLen);
+                if (pchValue && unValueLen > 0) {
+                    memcpy(pchValue, result_str.c_str(), std::min((size_t)unValueLen - 1, result_str.size()));
+                    pchValue[std::min((size_t)unValueLen - 1, result_str.size())] = '\0';
+                }
                 return;
             }
         }

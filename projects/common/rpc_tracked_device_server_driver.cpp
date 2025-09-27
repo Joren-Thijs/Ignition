@@ -133,7 +133,10 @@ void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pc
         if (!pchResponseBuffer || unResponseBufferSize == 0) return;
         RpcValue result = RpcSystem::CallMethod(GetId(), "DebugRequest", RpcValue(std::string(pchRequest)));
         std::string response = result.asString();
-        strncpy(pchResponseBuffer, response.c_str(), unResponseBufferSize);        
+        if (pchResponseBuffer && unResponseBufferSize > 0) {
+            memcpy(pchResponseBuffer, response.c_str(), std::min((size_t)unResponseBufferSize - 1, response.size()));
+            pchResponseBuffer[std::min((size_t)unResponseBufferSize - 1, response.size())] = '\0';
+        }
     }
     else {
         real_driver_->DebugRequest(pchRequest, pchResponseBuffer, unResponseBufferSize);
