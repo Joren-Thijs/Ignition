@@ -2,6 +2,16 @@
 #include <iostream>
 #include <vector>
 
+// Needed to fix issue with how Valve didn't pack VREvent_t correctly on Linux. Thanks, Valve!
+struct VREvent_t8
+{
+	uint32_t eventType; // EVREventType enum
+	vr::TrackedDeviceIndex_t trackedDeviceIndex;
+	float eventAgeSeconds;
+	// event data must be the end of the struct as its size is variable
+	vr::VREvent_Data_t data;
+};
+
 // --- RpcDriverHost ---
 
 RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_host_(real) {
@@ -66,11 +76,18 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
 
         RpcSystem::RegisterFunction(prefix + "PollNextEvent", [this](const auto& args) {
             vr::VREvent_t event;
+            VREvent_t8 event8;
 
             int expected_size = args[0].asInt();
 
             if (this->PollNextEvent(&event, sizeof(event))) {
-                return RpcValue((const char*)&event, sizeof(event));
+                // Copy members over
+                event8.eventType = event.eventType;
+                event8.trackedDeviceIndex = event.trackedDeviceIndex;
+                event8.eventAgeSeconds = event.eventAgeSeconds;
+                event8.data = event.data;
+
+                return RpcValue((const char*)&event8, sizeof(event8));
             }
 
             return RpcValue(); // Return null on no event

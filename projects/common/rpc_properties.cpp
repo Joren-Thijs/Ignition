@@ -1,3 +1,4 @@
+#include "openvr_driver.h"
 #include "vr_rpc_interfaces.h"
 #include <iostream>
 #include <vector>
@@ -56,9 +57,22 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
                 } else {
                     batch[i].pvBuffer = nullptr;
                 }
+
+#ifdef __WINE__
+                // Linux only hack: Fix the chaperone path.
+                if (batch[i].prop == vr::ETrackedDeviceProperty::Prop_DriverProvidedChaperonePath_String)
+                {
+                    // Log path, and also replace \ with /
+                    std::string path_str((char*)batch[i].pvBuffer, batch[i].unBufferSize);
+                    std::replace(path_str.begin(), path_str.end(), '\\', '/');
+                    std::cout << "Chaperone path: " << path_str << std::endl;
+                    // Update the buffer with the modified path
+                    memcpy(batch[i].pvBuffer, path_str.c_str(), path_str.length() + 1);
+                }
+#endif
             }
 
-            vr::ETrackedPropertyError overallError = this->real_properties_->WritePropertyBatch(ulContainerHandle, batch.data(), unBatchEntryCount);
+            vr::ETrackedPropertyError overallError = this->WritePropertyBatch(ulContainerHandle, batch.data(), unBatchEntryCount);
 
             std::vector<char> return_buffer;
             return_buffer.insert(return_buffer.end(), (char*)&overallError, (char*)&overallError + sizeof(overallError));
@@ -89,7 +103,7 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
                 batch[i].pvBuffer = data_buffers[i].data();
             }
 
-            vr::ETrackedPropertyError overallError = this->real_properties_->ReadPropertyBatch(ulContainerHandle, batch.data(), unBatchEntryCount);
+            vr::ETrackedPropertyError overallError = this->ReadPropertyBatch(ulContainerHandle, batch.data(), unBatchEntryCount);
 
             std::vector<char> return_buffer;
             return_buffer.insert(return_buffer.end(), (char*)&overallError, (char*)&overallError + sizeof(overallError));
@@ -121,9 +135,6 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
         for (uint32_t i = 0; i < unBatchEntryCount; ++i) {
             request_buffer.insert(request_buffer.end(), (char*)&pBatch[i].prop, (char*)&pBatch[i].prop + sizeof(vr::ETrackedDeviceProperty));
             request_buffer.insert(request_buffer.end(), (char*)&pBatch[i].unBufferSize, (char*)&pBatch[i].unBufferSize + sizeof(uint32_t));
-
-            // Log property being requested
-            std::cout << "Requesting property: " << pBatch[i].prop << " with buffer size: " << pBatch[i].unBufferSize << std::endl;
         }
 
         RpcValue result = RpcSystem::CallMethod(GetId(), "ReadPropertyBatch", RpcValue(ulContainerHandle), RpcValue(request_buffer.data(), request_buffer.size()));
@@ -176,16 +187,12 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
                 }
                 current_data_ptr += pBatch[i].unRequiredBufferSize;
             }
-
-            std::cout << "Received property: " << pBatch[i].prop << " with error: " << pBatch[i].eError << "tag type: " << pBatch[i].unTag << " and required buffer size: " << pBatch[i].unRequiredBufferSize << std::endl;
-            if (pBatch[i].eError == vr::TrackedProp_Success && pBatch[i].unRequiredBufferSize > 0 && pBatch[i].pvBuffer) {
-                std::string value_str((char*)pBatch[i].pvBuffer, pBatch[i].unRequiredBufferSize);
-                std::cout << "Property value: " << value_str << std::endl;
-            }
         }
         return batchResult.overallError;
     }
-    return real_properties_ ? real_properties_->ReadPropertyBatch(ulContainerHandle, pBatch, unBatchEntryCount) : vr::TrackedProp_InvalidOperation;
+    else {
+        return real_properties_->ReadPropertyBatch(ulContainerHandle, pBatch, unBatchEntryCount);
+    }
 }
 vr::ETrackedPropertyError RpcProperties::WritePropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyWrite_t *pBatch, uint32_t unBatchEntryCount) {
     if (IsProxy()) {
