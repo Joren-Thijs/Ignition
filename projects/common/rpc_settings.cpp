@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <vector>
 
 // --- RpcSettings ---
@@ -109,7 +109,7 @@ RpcSettings::~RpcSettings() {
 }
 
 RpcClassEnum RpcSettings::GetRpcClassId() const {
-    return Class_Settings;
+    return RPCClassSettings;
 }
 
 const char *RpcSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError) {

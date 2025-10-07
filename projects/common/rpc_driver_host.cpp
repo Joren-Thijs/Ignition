@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <iostream>
 #include <vector>
 
@@ -148,7 +148,7 @@ RpcDriverHost::RpcDriverHost(RpcObjectId id) : RpcObject(id) {}
 RpcDriverHost::~RpcDriverHost() {}
 
 RpcClassEnum RpcDriverHost::GetRpcClassId() const {
-    return Class_DriverHost;
+    return RPCClassDriverHost;
 }
 
 bool RpcDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver *pDriver) {

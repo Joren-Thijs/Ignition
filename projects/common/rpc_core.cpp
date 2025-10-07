@@ -380,19 +380,21 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         EnqueueTask([this, objId, func_id, args, callId] {
             RpcValue return_val;
             try {
-                RpcObject* target_obj = _GetLocalObject(objId);
-                if (!target_obj) {
-                    throw std::runtime_error("Target object not found: " + std::to_string(objId));
-                }
-
-                RpcObject::RpcFunction func = target_obj->FindFunction(func_id);
-
-                if (func) {
-                    return_val = func(args);
+                if (objId == 0) { // Static function call
+                    RpcFunction func = _FindFunction(func_id);
+                    if (func) {
+                        return_val = func(args);
+                    } else {
+                        throw std::runtime_error("Static function ID not found: " + std::to_string(func_id));
+                    }
                 } else {
-                    // Special case for static functions registered on object 0
-                    if (objId == 0) {
-                         throw std::runtime_error("Static function ID not found: " + std::to_string(func_id));
+                    RpcObject* target_obj = _GetLocalObject(objId);
+                    if (!target_obj) {
+                        throw std::runtime_error("Target object not found: " + std::to_string(objId));
+                    }
+                    RpcObject::RpcFunction func = target_obj->FindFunction(func_id);
+                    if (func) {
+                        return_val = func(args);
                     } else {
                          throw std::runtime_error("Method ID " + std::to_string(func_id) + " not found on object " + std::to_string(objId));
                     }
@@ -486,6 +488,22 @@ void RpcSystem::_UnregisterLocalObject(RpcObjectId id) {
     local_objects_.erase(id);
 }
 
+void RpcSystem::_RegisterFunction(RpcFunctionEnum funcId, RpcFunction func) {
+    std::lock_guard<std::mutex> lock(object_mutex_);
+    static_function_registry_[funcId] = func;
+}
+
+void RpcSystem::_UnregisterFunction(RpcFunctionEnum funcId) {
+    std::lock_guard<std::mutex> lock(object_mutex_);
+    static_function_registry_.erase(funcId);
+}
+
+RpcSystem::RpcFunction RpcSystem::_FindFunction(RpcFunctionEnum funcId) {
+    std::lock_guard<std::mutex> lock(object_mutex_);
+    auto it = static_function_registry_.find(funcId);
+    return (it == static_function_registry_.end()) ? nullptr : it->second;
+}
+
 RpcObject* RpcSystem::_GetLocalObject(RpcObjectId id) {
     std::lock_guard<std::mutex> lock(object_mutex_);
     auto it = local_objects_.find(id);
@@ -514,4 +532,49 @@ RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId) {
     }
 
     throw std::runtime_error("Cannot create proxy: Class ID '" + std::to_string(classId) + "' is not registered.");
+}
+
+RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, const std::vector<RpcValue>& args) {
+    if (!_IsConnected()) {
+        throw std::runtime_error("RPC system is not connected.");
+    }
+
+    uint32_t callId;
+    auto pendingCall = std::make_shared<PendingCall>();
+    {
+        std::lock_guard<std::mutex> lock(pending_calls_mutex_);
+        callId = next_call_id_++;
+        pending_calls_[callId] = pendingCall;
+    }
+
+    // {
+    //      std::lock_guard<std::mutex> lock(cout_mutex_);
+    //      std::cout << "RPC InternalCall to obj " << objId << " func " << funcId << " with callId " << callId << std::endl;
+    // }
+
+    std::vector<char> buffer;
+    char msg_type = 'C'; // 'C' for Call
+    buffer.push_back(msg_type);
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&objId), reinterpret_cast<const char*>(&objId) + sizeof(objId));
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&funcId), reinterpret_cast<const char*>(&funcId) + sizeof(funcId));
+
+    uint32_t arg_count = args.size();
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&arg_count), reinterpret_cast<const char*>(&arg_count) + sizeof(arg_count));
+    for (const auto& arg : args) {
+        Serializer::serialize(buffer, arg);
+    }
+
+    SendRPCMessage(buffer);
+    // Wait for the return value
+    std::unique_lock<std::mutex> lock(pendingCall->mtx);
+    if (!pendingCall->cv.wait_for(lock, std::chrono::seconds(60), [&]{ return pendingCall->completed; })) {
+        {
+            std::lock_guard<std::mutex> pc_lock(pending_calls_mutex_);
+            pending_calls_.erase(callId);
+        }
+        throw std::runtime_error("RPC call timed out for object " + std::to_string(objId) + " function " + std::to_string(funcId));
+    }
+
+    return pendingCall->returnValue;
 }

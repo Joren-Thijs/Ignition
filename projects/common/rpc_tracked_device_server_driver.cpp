@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <cstring>
 #include <iostream>
 
@@ -53,7 +53,7 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(RpcObjectId id) : Rpc
 RpcTrackedDeviceServerDriver::~RpcTrackedDeviceServerDriver() {}
 
 RpcClassEnum RpcTrackedDeviceServerDriver::GetRpcClassId() const {
-    return Class_TrackedDeviceServerDriver;
+    return RPCClassTrackedDeviceServerDriver;
 }
 
 vr::EVRInitError RpcTrackedDeviceServerDriver::Activate(uint32_t unObjectId) {

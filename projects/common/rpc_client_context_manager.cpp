@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <iostream>
 
 // --- ClientContextManager ---
@@ -28,7 +28,7 @@ ClientContextManager::~ClientContextManager() {
 }
 
 RpcClassEnum ClientContextManager::GetRpcClassId() const {
-    return Class_ClientContextManager;
+    return RPCClassClientContextManager;
 }
 
 void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion, vr::EVRInitError *peError) {

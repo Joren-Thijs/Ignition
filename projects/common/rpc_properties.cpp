@@ -1,5 +1,5 @@
 #include "openvr_driver.h"
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -122,7 +122,7 @@ RpcProperties::RpcProperties(RpcObjectId id) : RpcObject(id) {}
 RpcProperties::~RpcProperties() {}
 
 RpcClassEnum RpcProperties::GetRpcClassId() const {
-    return Class_Properties;
+    return RPCClassProperties;
 }
 
 vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyRead_t *pBatch, uint32_t unBatchEntryCount) {

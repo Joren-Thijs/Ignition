@@ -1,5 +1,5 @@
 #include "rpc_core.h"
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 
 #include <openvr.hpp>
 #include <windows.h>
@@ -10,16 +10,6 @@ void *(*pfnHmdDriverFactory)(const char *pInterfaceName, int *pReturnCode) = nul
 
 // Global pointer to the provider so we can register it.
 RpcServerTrackedDeviceProvider* g_pRpcProvider = nullptr;
-
-// A special object to hold static functions
-class StaticFunctionHolder : public RpcObject {
-public:
-    StaticFunctionHolder() : RpcObject(0) {} // Use ID 0
-    ~StaticFunctionHolder() {}
-    RpcClassEnum GetRpcClassId() const override {
-        return Class_StaticFunctions;
-    }
-};
 
 void RegisterRPCClasses() {
     RpcSystem::RegisterRPCClass<RpcServerTrackedDeviceProvider>();
@@ -90,8 +80,7 @@ int main(int argc, char *argv[])
   
   // Register a function that the client can call to get a proxy to our provider.
   // We'll register it on a special "static" object with ID 0.
-  auto* static_funcs = new StaticFunctionHolder();
-  static_funcs->RegisterFunction(RPCFunction_Get_ServerTrackedDeviceProvider, [](const auto& args) {
+  RpcSystem::RegisterFunction(RPCFunction_Get_ServerTrackedDeviceProvider, [](const auto& args) {
     auto val = RpcValue(g_pRpcProvider);
     return val;
   });
@@ -107,7 +96,6 @@ int main(int argc, char *argv[])
   std::cout << "Client disconnected, shutting down." << std::endl;
   
   delete g_pRpcProvider;
-  delete static_funcs;
   RpcSystem::Shutdown();
 
   CoUninitialize();

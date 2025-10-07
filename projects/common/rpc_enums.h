@@ -2,6 +2,24 @@
 
 #include <cstdint>
 
+enum RpcClassEnum : uint32_t
+{
+    RPCClassInvalid = 0,
+    RPCClassStaticFunctions,
+    RPCClassClientContextManager,
+    RPCClassServerTrackedDeviceProvider,
+    RPCClassDriverHost,
+    RPCClassDriverLog,
+    RPCClassSettings,
+    RPCClassTrackedDeviceServerDriver,
+    RPCClassDisplayComponent,
+    RPCClassCameraComponent,
+    RPCClassDriverInput,
+    RPCClassDriverManager,
+    RPCClassProperties,
+    RPCClassResources,
+};
+
 enum RpcFunctionEnum : uint32_t
 {
     // Static getter for IServerTrackedDeviceProvider

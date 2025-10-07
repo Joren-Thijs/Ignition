@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <vector>
 
 // --- RpcCameraComponent ---
@@ -131,7 +131,7 @@ RpcCameraComponent::RpcCameraComponent(RpcObjectId id) : RpcObject(id) {}
 RpcCameraComponent::~RpcCameraComponent() {}
 
 RpcClassEnum RpcCameraComponent::GetRpcClassId() const {
-    return Class_CameraComponent;
+    return RPCClassCameraComponent;
 }
 
 bool RpcCameraComponent::GetCameraFrameDimensions(vr::ECameraVideoStreamFormat nVideoStreamFormat, uint32_t *pWidth, uint32_t *pHeight) {

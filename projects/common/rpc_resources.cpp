@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 
 // --- RpcResources ---
 
@@ -31,7 +31,7 @@ RpcResources::RpcResources(RpcObjectId id) : RpcObject(id) {}
 RpcResources::~RpcResources() {}
 
 RpcClassEnum RpcResources::GetRpcClassId() const {
-    return Class_Resources;
+    return RPCClassResources;
 }
 
 uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pchBuffer, uint32_t unBufferLen) {

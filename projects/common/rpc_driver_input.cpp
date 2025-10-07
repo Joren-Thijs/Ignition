@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <vector>
 
 // --- RpcDriverInput ---
@@ -110,7 +110,7 @@ RpcDriverInput::RpcDriverInput(RpcObjectId id) : RpcObject(id) {}
 RpcDriverInput::~RpcDriverInput() {}
 
 RpcClassEnum RpcDriverInput::GetRpcClassId() const {
-    return Class_DriverInput;
+    return RPCClassDriverInput;
 }
 
 vr::EVRInputError RpcDriverInput::CreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) {

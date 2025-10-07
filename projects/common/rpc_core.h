@@ -16,7 +16,6 @@
 #include <cstring>
 
 #include "rpc_enums.h"
-#include "rpc_class_enum.h"
 
 // Forward declarations
 struct CircularBuffer;
@@ -91,6 +90,8 @@ private:
 // --- RPC System (Static Class) ---
 class RpcSystem {
 public:
+    using RpcFunction = std::function<RpcValue(const std::vector<RpcValue>&)>;
+
     // Get the singleton instance
     static RpcSystem& GetInstance();
 
@@ -101,6 +102,12 @@ public:
     // Register a class type and its proxy factory.
     template<typename T>
     static void RegisterRPCClass() { GetInstance()._RegisterRPCClass<T>(); }
+
+    // Register a standalone function (not tied to an object)
+    static void RegisterFunction(RpcFunctionEnum funcId, RpcFunction func) { GetInstance()._RegisterFunction(funcId, func); }
+
+    // Unregister a standalone function
+    static void UnregisterFunction(RpcFunctionEnum funcId) { GetInstance()._UnregisterFunction(funcId); }
 
     // Call a remote standalone function.
     template<typename... Args>
@@ -120,6 +127,9 @@ public:
     RpcObjectId _GenerateObjectId();
     void _RegisterLocalObject(RpcObject* obj);
     void _UnregisterLocalObject(RpcObjectId id);
+    void _RegisterFunction(RpcFunctionEnum funcId, RpcFunction func);
+    void _UnregisterFunction(RpcFunctionEnum funcId);
+    RpcFunction _FindFunction(RpcFunctionEnum funcId);
     RpcObject* _GetLocalObject(RpcObjectId id);
     RpcObject* _FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId);
 
@@ -180,6 +190,7 @@ private:
     std::atomic<RpcObjectId> next_object_id_{1};
     std::map<RpcObjectId, RpcObject*> local_objects_; // Real objects this process owns
     std::map<RpcObjectId, std::unique_ptr<RpcObject>> remote_proxies_; // Proxies to remote objects    
+    std::map<RpcFunctionEnum, std::function<RpcValue(const std::vector<RpcValue>&)>> static_function_registry_;
     std::map<RpcClassEnum, ObjectFactory> object_factories_;
     std::mutex object_mutex_;
 
@@ -203,14 +214,24 @@ private:
 // Inherit from this class to make it usable over RPC.
 class RpcObject {
 public:
-    using RpcFunction = std::function<RpcValue(const std::vector<RpcValue>&)>;
+    using RpcFunction = RpcSystem::RpcFunction;
 
-    // Constructor for a new local object. It will be registered with the system.
-    RpcObject();
+    // Constructor for a new local object. It will be registered with the system. It's inline because it's in a header.
+    inline RpcObject() : is_proxy_(false) {
+        object_id_ = RpcSystem::GenerateObjectId();
+        RpcSystem::RegisterLocalObject(this);
+    }
+
     // Constructor for a proxy to a remote object. Use this in derived classes.
-    RpcObject(RpcObjectId id);
+    inline RpcObject(RpcObjectId id) : object_id_(id), is_proxy_(true) {}
 
-    virtual ~RpcObject();
+    inline virtual ~RpcObject() {
+        if (!is_proxy_) {
+            // If this is a real object, unregister it from the system
+            // upon destruction.
+            RpcSystem::UnregisterLocalObject(object_id_);
+        }
+    }
 
     // Register function
     void RegisterFunction(RpcFunctionEnum funcId, RpcFunction func);
@@ -255,7 +276,7 @@ void RpcSystem::_RegisterRPCClass() {
 
 template<typename... Args>
 RpcValue RpcSystem::_Call(RpcFunctionEnum funcId, Args... args) {
-    return _CallMethod(0, funcId, {RpcValue(args)...});
+    return this->_CallMethod(0, funcId, args...);
 }
 
 template<typename... Args>
@@ -270,51 +291,6 @@ void RpcSystem::EnqueueTask(F&& f, Args&&... args) {
         tasks_.emplace(std::forward<F>(f));
     }
     thread_pool_cv_.notify_one();
-}
-
-RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, const std::vector<RpcValue>& args) {
-    if (!_IsConnected()) {
-        throw std::runtime_error("RPC system is not connected.");
-    }
-
-    uint32_t callId;
-    auto pendingCall = std::make_shared<PendingCall>();
-    {
-        std::lock_guard<std::mutex> lock(pending_calls_mutex_);
-        callId = next_call_id_++;
-        pending_calls_[callId] = pendingCall;
-    }
-
-    // {
-    //      std::lock_guard<std::mutex> lock(cout_mutex_);
-    //      std::cout << "RPC InternalCall to obj " << objId << " func " << funcId << " with callId " << callId << std::endl;
-    // }
-
-    std::vector<char> buffer;
-    char msg_type = 'C'; // 'C' for Call
-    buffer.push_back(msg_type);
-    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
-    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&objId), reinterpret_cast<const char*>(&objId) + sizeof(objId));
-    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&funcId), reinterpret_cast<const char*>(&funcId) + sizeof(funcId));
-
-    uint32_t arg_count = args.size();
-    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&arg_count), reinterpret_cast<const char*>(&arg_count) + sizeof(arg_count));
-    for (const auto& arg : args) {
-        Serializer::serialize(buffer, arg);
-    }
-
-    SendRPCMessage(buffer);
-    // Wait for the return value
-    std::unique_lock<std::mutex> lock(pendingCall->mtx);
-    if (!pendingCall->cv.wait_for(lock, std::chrono::seconds(60), [&]{ return pendingCall->completed; })) {
-        {
-            std::lock_guard<std::mutex> pc_lock(pending_calls_mutex_);
-            pending_calls_.erase(callId);
-        }
-        throw std::runtime_error("RPC call timed out for object " + std::to_string(objId) + " function " + std::to_string(funcId));
-    }
-
-    return pendingCall->returnValue;
 }
 
 // --- Global Object Management helpers ---

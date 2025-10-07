@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 
 // --- RpcDriverManager ---
 
@@ -27,7 +27,7 @@ RpcDriverManager::RpcDriverManager(RpcObjectId id) : RpcObject(id) {}
 RpcDriverManager::~RpcDriverManager() {}
 
 RpcClassEnum RpcDriverManager::GetRpcClassId() const {
-    return Class_DriverManager;
+    return RPCClassDriverManager;
 }
 
 uint32_t RpcDriverManager::GetDriverCount() const {

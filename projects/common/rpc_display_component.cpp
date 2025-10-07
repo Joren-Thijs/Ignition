@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 
 // --- RpcDisplayComponent ---
 
@@ -59,7 +59,7 @@ RpcDisplayComponent::RpcDisplayComponent(RpcObjectId id) : RpcObject(id) {}
 RpcDisplayComponent::~RpcDisplayComponent() {}
 
 RpcClassEnum RpcDisplayComponent::GetRpcClassId() const {
-    return Class_DisplayComponent;
+    return RPCClassDisplayComponent;
 }
 
 void RpcDisplayComponent::GetWindowBounds(int32_t *pnX, int32_t *pnY, uint32_t *pnWidth, uint32_t *pnHeight) {

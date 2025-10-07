@@ -1,5 +1,5 @@
 #include "driver.hpp"
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 
 #include <string>
 #include <memory>

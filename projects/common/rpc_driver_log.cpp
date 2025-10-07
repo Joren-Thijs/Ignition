@@ -1,4 +1,4 @@
-#include "vr_rpc_interfaces.h"
+#include "rpc_interfaces.h"
 #include <iostream>
 
 // --- RpcDriverLog ---
@@ -18,7 +18,7 @@ RpcDriverLog::RpcDriverLog(RpcObjectId id) : RpcObject(id) {}
 RpcDriverLog::~RpcDriverLog() {}
 
 RpcClassEnum RpcDriverLog::GetRpcClassId() const {
-    return Class_DriverLog;
+    return RPCClassDriverLog;
 }
 
 void RpcDriverLog::Log(const char *pchLogMessage) {
