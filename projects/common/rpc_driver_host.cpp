@@ -16,9 +16,7 @@ struct VREvent_t8
 
 RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_host_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "TrackedDeviceAdded", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_TrackedDeviceAdded, [this](const auto& args) {
             const std::string serial_str = args[0].asString();
             const char* serial = serial_str.c_str();
             auto device_class = (vr::ETrackedDeviceClass)args[1].asInt();
@@ -28,7 +26,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue((int)result);
         });
 
-        RpcSystem::RegisterFunction(prefix + "TrackedDevicePoseUpdated", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_TrackedDevicePoseUpdated, [this](const auto& args) {
             uint32_t which_device = (uint32_t)args[0].asInt();
             auto pose_data = args[1].asPointer();
             vr::DriverPose_t new_pose;
@@ -40,7 +38,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "VendorSpecificEvent", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_VendorSpecificEvent, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto eventType = (vr::EVREventType)args[1].asInt();
             auto eventDataPair = args[2].asPointer();
@@ -55,26 +53,26 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "VsyncEvent", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_VsyncEvent, [this](const auto& args) {
             this->VsyncEvent(args[0].asDouble());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "IsExiting", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_IsExiting, [this](const auto& args) {
             return RpcValue((int)this->IsExiting());
         });
 
-        RpcSystem::RegisterFunction(prefix + "RequestRestart", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_RequestRestart, [this](const auto& args) {
             this->RequestRestart(args[0].asString().c_str(), args[1].asString().c_str(), args[2].asString().c_str(), args[3].asString().c_str());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetRecommendedRenderTargetSize", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_SetRecommendedRenderTargetSize, [this](const auto& args) {
             this->SetRecommendedRenderTargetSize((uint32_t)args[0].asInt(), (uint32_t)args[1].asInt(), (uint32_t)args[2].asInt());
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "PollNextEvent", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_PollNextEvent, [this](const auto& args) {
             vr::VREvent_t event;
             VREvent_t8 event8;
 
@@ -93,7 +91,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue(); // Return null on no event
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetRawTrackedDevicePoses", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_GetRawTrackedDevicePoses, [this](const auto& args) {
             float fPredictedSecondsFromNow = args[0].asFloat();
             uint32_t unTrackedDevicePoseArrayCount = (uint32_t)args[1].asInt();
 
@@ -106,7 +104,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetFrameTimings", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_GetFrameTimings, [this](const auto& args) {
             uint32_t nFrames = (uint32_t)args[0].asInt();
 
             if (nFrames > 0) {
@@ -119,7 +117,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetDisplayEyeToHead", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_SetDisplayEyeToHead, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto leftEyeData = args[1].asPointer();
             auto rightEyeData = args[2].asPointer();
@@ -131,7 +129,7 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetDisplayProjectionRaw", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_DriverHost_SetDisplayProjectionRaw, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto leftEyeData = args[1].asPointer();
             auto rightEyeData = args[2].asPointer();
@@ -149,9 +147,8 @@ RpcDriverHost::RpcDriverHost(RpcObjectId id) : RpcObject(id) {}
 
 RpcDriverHost::~RpcDriverHost() {}
 
-const std::string& RpcDriverHost::GetRpcClassName() const {
-    static const std::string name = "IVRServerDriverHost";
-    return name;
+RpcClassEnum RpcDriverHost::GetRpcClassId() const {
+    return Class_DriverHost;
 }
 
 bool RpcDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver *pDriver) {
@@ -162,7 +159,7 @@ bool RpcDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber, vr::ET
         auto* rpc_driver = new RpcTrackedDeviceServerDriver(pDriver);
 
         // Now we can call the client's real TrackedDeviceAdded with our proxy object.
-        RpcValue result = RpcSystem::CallMethod(GetId(), "TrackedDeviceAdded", RpcValue(std::string(pchDeviceSerialNumber)), RpcValue((int)eDeviceClass), RpcValue(rpc_driver));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_TrackedDeviceAdded, RpcValue(std::string(pchDeviceSerialNumber)), RpcValue((int)eDeviceClass), RpcValue(rpc_driver));
         return result.asInt();
     }
     else {
@@ -174,7 +171,7 @@ void RpcDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice, const vr::D
     if (IsProxy()) {
         // This is called on the server (proxy) by the real driver.
         // We need to forward this to the client.
-        RpcSystem::CallMethod(GetId(), "TrackedDevicePoseUpdated", RpcValue((int)unWhichDevice), RpcValue((const char*)&newPose, unPoseStructSize));
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_TrackedDevicePoseUpdated, RpcValue((int)unWhichDevice), RpcValue((const char*)&newPose, unPoseStructSize));
     }
     else {
         real_host_->TrackedDevicePoseUpdated(unWhichDevice, newPose, unPoseStructSize);
@@ -183,7 +180,7 @@ void RpcDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice, const vr::D
 
 void RpcDriverHost::VsyncEvent(double vsyncTimeOffsetSeconds) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "VsyncEvent", RpcValue(vsyncTimeOffsetSeconds));
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_VsyncEvent, RpcValue(vsyncTimeOffsetSeconds));
     }
     else {
         real_host_->VsyncEvent(vsyncTimeOffsetSeconds);
@@ -192,7 +189,7 @@ void RpcDriverHost::VsyncEvent(double vsyncTimeOffsetSeconds) {
 
 void RpcDriverHost::VendorSpecificEvent(uint32_t unWhichDevice, vr::EVREventType eventType, const vr::VREvent_Data_t &eventData, double eventTimeOffset) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "VendorSpecificEvent",
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_VendorSpecificEvent,
             RpcValue((int)unWhichDevice),
             RpcValue((int)eventType),
             RpcValue((const char*)&eventData, sizeof(eventData)),
@@ -206,13 +203,13 @@ void RpcDriverHost::VendorSpecificEvent(uint32_t unWhichDevice, vr::EVREventType
 
 bool RpcDriverHost::IsExiting() {
     return IsProxy() ?
-        RpcSystem::CallMethod(GetId(), "IsExiting").asInt() :
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_IsExiting).asInt() :
         real_host_->IsExiting();
 }
 
 bool RpcDriverHost::PollNextEvent(vr::VREvent_t *pEvent, uint32_t uncbVREvent) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "PollNextEvent", RpcValue((int)uncbVREvent));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_PollNextEvent, RpcValue((int)uncbVREvent));
         if (result.isPointer()) {
             auto data = result.asPointer();
             if (data.second == sizeof(vr::VREvent_t)) {
@@ -235,7 +232,7 @@ void RpcDriverHost::GetRawTrackedDevicePoses(float fPredictedSecondsFromNow, vr:
         if (!pTrackedDevicePoseArray || unTrackedDevicePoseArrayCount == 0) {
             return;
         }
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetRawTrackedDevicePoses", RpcValue(fPredictedSecondsFromNow), RpcValue((int)unTrackedDevicePoseArrayCount));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_GetRawTrackedDevicePoses, RpcValue(fPredictedSecondsFromNow), RpcValue((int)unTrackedDevicePoseArrayCount));
         if (result.isPointer()) {
             auto data = result.asPointer();
             size_t bytesToCopy = std::min(data.second, (size_t)unTrackedDevicePoseArrayCount * sizeof(vr::TrackedDevicePose_t));
@@ -249,7 +246,7 @@ void RpcDriverHost::GetRawTrackedDevicePoses(float fPredictedSecondsFromNow, vr:
 
 void RpcDriverHost::RequestRestart(const char *pchLocalizedReason, const char *pchExecutableToStart, const char *pchArguments, const char *pchWorkingDirectory) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "RequestRestart", RpcValue(std::string(pchLocalizedReason ? pchLocalizedReason : "")), RpcValue(std::string(pchExecutableToStart ? pchExecutableToStart : "")), RpcValue(std::string(pchArguments ? pchArguments : "")), RpcValue(std::string(pchWorkingDirectory ? pchWorkingDirectory : "")));
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_RequestRestart, RpcValue(std::string(pchLocalizedReason ? pchLocalizedReason : "")), RpcValue(std::string(pchExecutableToStart ? pchExecutableToStart : "")), RpcValue(std::string(pchArguments ? pchArguments : "")), RpcValue(std::string(pchWorkingDirectory ? pchWorkingDirectory : "")));
     }
     else {
         real_host_->RequestRestart(pchLocalizedReason, pchExecutableToStart, pchArguments, pchWorkingDirectory);
@@ -261,7 +258,7 @@ uint32_t RpcDriverHost::GetFrameTimings(vr::Compositor_FrameTiming *pTiming, uin
         if (!pTiming || nFrames == 0) {
             return 0;
         }
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetFrameTimings", RpcValue((int)nFrames));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_GetFrameTimings, RpcValue((int)nFrames));
         if (result.isPointer()) {
             auto data = result.asPointer();
             uint32_t framesRead = data.second / sizeof(vr::Compositor_FrameTiming);
@@ -278,7 +275,7 @@ uint32_t RpcDriverHost::GetFrameTimings(vr::Compositor_FrameTiming *pTiming, uin
 
 void RpcDriverHost::SetDisplayEyeToHead(uint32_t unWhichDevice, const vr::HmdMatrix34_t &eyeToHeadLeft, const vr::HmdMatrix34_t &eyeToHeadRight) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "SetDisplayEyeToHead",
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_SetDisplayEyeToHead,
             RpcValue((int)unWhichDevice),
             RpcValue((const char*)&eyeToHeadLeft, sizeof(eyeToHeadLeft)),
             RpcValue((const char*)&eyeToHeadRight, sizeof(eyeToHeadRight))
@@ -291,7 +288,7 @@ void RpcDriverHost::SetDisplayEyeToHead(uint32_t unWhichDevice, const vr::HmdMat
 
 void RpcDriverHost::SetDisplayProjectionRaw(uint32_t unWhichDevice, const vr::HmdRect2_t &eyeLeft, const vr::HmdRect2_t &eyeRight) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "SetDisplayProjectionRaw",
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_SetDisplayProjectionRaw,
             RpcValue((int)unWhichDevice),
             RpcValue((const char*)&eyeLeft, sizeof(eyeLeft)),
             RpcValue((const char*)&eyeRight, sizeof(eyeRight))
@@ -304,7 +301,7 @@ void RpcDriverHost::SetDisplayProjectionRaw(uint32_t unWhichDevice, const vr::Hm
 
 void RpcDriverHost::SetRecommendedRenderTargetSize(uint32_t unWhichDevice, uint32_t nWidth, uint32_t nHeight) {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "SetRecommendedRenderTargetSize", RpcValue((int)unWhichDevice), RpcValue((int)nWidth), RpcValue((int)nHeight));
+        RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_SetRecommendedRenderTargetSize, RpcValue((int)unWhichDevice), RpcValue((int)nWidth), RpcValue((int)nHeight));
     }
     else {
         real_host_->SetRecommendedRenderTargetSize(unWhichDevice, nWidth, nHeight);

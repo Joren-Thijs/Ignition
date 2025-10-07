@@ -5,9 +5,7 @@
 
 RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "GetBool", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_GetBool, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -18,7 +16,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetInt32", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_GetInt32, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -29,7 +27,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetFloat", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_GetFloat, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -40,7 +38,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue(buffer.data(), buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetString", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_GetString, [this](const auto& args) {
             char buffer[vr::k_unMaxPropertyStringSize];
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
@@ -54,7 +52,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue(return_buffer.data(), return_buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetBool", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_SetBool, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -62,7 +60,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetInt32", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_SetInt32, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -70,7 +68,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetFloat", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_SetFloat, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -78,7 +76,7 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "SetString", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_SetString, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -87,14 +85,14 @@ RpcSettings::RpcSettings(vr::IVRSettings* real) : RpcObject(), real_settings_(re
             return RpcValue((int)err);
         });
 
-        RpcSystem::RegisterFunction(prefix + "RemoveSection", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_RemoveSection, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             this->RemoveSection(section.c_str(), &err);
             return RpcValue((int)err);
         });
         
-        RpcSystem::RegisterFunction(prefix + "RemoveKeyInSection", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Settings_RemoveKeyInSection, [this](const auto& args) {
             vr::EVRSettingsError err;
             const std::string section = args[0].asString();
             const std::string key = args[1].asString();
@@ -110,9 +108,8 @@ RpcSettings::~RpcSettings() {
     error_name_cache_.clear();
 }
 
-const std::string& RpcSettings::GetRpcClassName() const {
-    static const std::string name = "IVRSettings";
-    return name;
+RpcClassEnum RpcSettings::GetRpcClassId() const {
+    return Class_Settings;
 }
 
 const char *RpcSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError) {
@@ -125,7 +122,7 @@ const char *RpcSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eErro
         }
         
         // We don't have it. Ask the remote side.
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetSettingsErrorNameFromEnum", RpcValue((int)eError));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetSettingsErrorNameFromEnum, RpcValue((int)eError));
         std::string name = result.asString();
         error_name_cache_[eError] = name;
         return error_name_cache_[eError].c_str();
@@ -137,7 +134,7 @@ const char *RpcSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eErro
 
 void RpcSettings::SetBool(const char *pchSection, const char *pchSettingsKey, bool bValue, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "SetBool", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue((int)bValue));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_SetBool, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue((int)bValue));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {
@@ -147,7 +144,7 @@ void RpcSettings::SetBool(const char *pchSection, const char *pchSettingsKey, bo
 
 void RpcSettings::SetInt32(const char *pchSection, const char *pchSettingsKey, int32_t nValue, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "SetInt32", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(nValue));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_SetInt32, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(nValue));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {
@@ -157,7 +154,7 @@ void RpcSettings::SetInt32(const char *pchSection, const char *pchSettingsKey, i
 
 void RpcSettings::SetFloat(const char *pchSection, const char *pchSettingsKey, float flValue, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "SetFloat", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(flValue));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_SetFloat, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(flValue));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {
@@ -167,7 +164,7 @@ void RpcSettings::SetFloat(const char *pchSection, const char *pchSettingsKey, f
 
 void RpcSettings::SetString(const char *pchSection, const char *pchSettingsKey, const char *pchValue, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "SetString", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(std::string(pchValue)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_SetString, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)), RpcValue(std::string(pchValue)));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {
@@ -177,7 +174,7 @@ void RpcSettings::SetString(const char *pchSection, const char *pchSettingsKey, 
 
 bool RpcSettings::GetBool(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result_val = RpcSystem::CallMethod(GetId(), "GetBool", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
+        RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetBool, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
         if (result_val.isPointer() && result_val.asPointer().second == sizeof(bool) + sizeof(vr::EVRSettingsError)) {
             const char* ptr = result_val.asPointer().first;
             bool result = *reinterpret_cast<const bool*>(ptr);
@@ -194,7 +191,7 @@ bool RpcSettings::GetBool(const char *pchSection, const char *pchSettingsKey, vr
 
 int32_t RpcSettings::GetInt32(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result_val = RpcSystem::CallMethod(GetId(), "GetInt32", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
+        RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetInt32, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
         if (result_val.isPointer() && result_val.asPointer().second == sizeof(int32_t) + sizeof(vr::EVRSettingsError)) {
             const char* ptr = result_val.asPointer().first;
             int32_t result = *reinterpret_cast<const int32_t*>(ptr);
@@ -211,7 +208,7 @@ int32_t RpcSettings::GetInt32(const char *pchSection, const char *pchSettingsKey
 
 float RpcSettings::GetFloat(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result_val = RpcSystem::CallMethod(GetId(), "GetFloat", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
+        RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetFloat, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
         if (result_val.isPointer() && result_val.asPointer().second == sizeof(float) + sizeof(vr::EVRSettingsError)) {
             const char* ptr = result_val.asPointer().first;
             float result = *reinterpret_cast<const float*>(ptr);
@@ -228,7 +225,7 @@ float RpcSettings::GetFloat(const char *pchSection, const char *pchSettingsKey, 
 
 void RpcSettings::GetString(const char *pchSection, const char *pchSettingsKey, VR_OUT_STRING() char *pchValue, uint32_t unValueLen, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result_val = RpcSystem::CallMethod(GetId(), "GetString", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
+        RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetString, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
         if (result_val.isPointer()) {
             auto data = result_val.asPointer();
             if (data.second >= sizeof(vr::EVRSettingsError)) {
@@ -251,7 +248,7 @@ void RpcSettings::GetString(const char *pchSection, const char *pchSettingsKey, 
 
 void RpcSettings::RemoveSection(const char *pchSection, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "RemoveSection", RpcValue(std::string(pchSection)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_RemoveSection, RpcValue(std::string(pchSection)));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {
@@ -261,7 +258,7 @@ void RpcSettings::RemoveSection(const char *pchSection, vr::EVRSettingsError *pe
 
 void RpcSettings::RemoveKeyInSection(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "RemoveKeyInSection", RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_RemoveKeyInSection, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
         if (peError) *peError = (vr::EVRSettingsError)result.asInt();
     }
     else {

@@ -6,14 +6,12 @@
 ClientContextManager::ClientContextManager(vr::IVRDriverContext *real_context) : RpcObject(), real_context_(real_context)
 {
     if (!IsProxy()) { // This is the real object on the client side
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "GetGenericInterface", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ClientContextManager_GetGenericInterface, [this](const auto& args) {
             vr::EVRInitError err;
             return RpcValue(static_cast<RpcObject*>(this->GetGenericInterface(args[0].asString().c_str(), &err)));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetDriverHandle", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ClientContextManager_GetDriverHandleContext, [this](const auto& args) {
             // vr::DriverHandle_t is a uint64_t
             return RpcValue(this->GetDriverHandle());
         });
@@ -29,9 +27,8 @@ ClientContextManager::~ClientContextManager() {
     }
 }
 
-const std::string& ClientContextManager::GetRpcClassName() const {
-    static const std::string name = "ClientContextManager";
-    return name;
+RpcClassEnum ClientContextManager::GetRpcClassId() const {
+    return Class_ClientContextManager;
 }
 
 void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion, vr::EVRInitError *peError) {
@@ -39,7 +36,7 @@ void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion,
         std::cout << "ClientContextManager: Getting interface " << pchInterfaceVersion << std::endl;
 
         // Server-side proxy implementation
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetGenericInterface", RpcValue(std::string(pchInterfaceVersion)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_ClientContextManager_GetGenericInterface, RpcValue(std::string(pchInterfaceVersion)));
         if (result.isObject()) {
             std::cout << "ClientContextManager: Id: " << result.asObject()->GetId() << std::endl;
             RpcObject* obj = result.asObject();
@@ -131,7 +128,7 @@ void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion,
 
 vr::DriverHandle_t ClientContextManager::GetDriverHandle() {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetDriverHandle");
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_ClientContextManager_GetDriverHandleContext);
         return result.asUint64();
     } else {
         return real_context_->GetDriverHandle();

@@ -8,8 +8,8 @@
 // --- RpcValue Implementation ---
 RpcValue::RpcValue(RpcObject* v) : type_(T_OBJECT_REF) {
     assert(v != nullptr && "Cannot construct RpcValue with a null RpcObject*");
-    obj_ref_.id = v->GetId();
-    obj_ref_.class_name = &v->GetRpcClassName();
+    obj_ref_.id = v->GetId();    
+    obj_ref_.class_id = v->GetRpcClassId();
 }
 
 RpcValue::RpcValue(const RpcValue& other) : type_(other.type_) {
@@ -75,23 +75,28 @@ std::pair<const char*, size_t> RpcValue::asPointer() const {
 }
 RpcObject* RpcValue::asObject() const {
     if (!isObject()) throw std::runtime_error("RpcValue is not an object reference.");
-    return RpcSystem::GetInstance()._FindOrCreateProxy(obj_ref_.id, *obj_ref_.class_name);
+    return RpcSystem::GetInstance()._FindOrCreateProxy(obj_ref_.id, obj_ref_.class_id);
 }
 
 // --- RpcObject Implementation ---
-RpcObject::RpcObject() : is_proxy_(false) {
-    object_id_ = RpcSystem::GenerateObjectId();
-    RpcSystem::RegisterLocalObject(this);
+
+
+// --- RpcObject Implementation ---
+void RpcObject::RegisterFunction(RpcFunctionEnum funcId, RpcFunction func) {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    function_registry_[funcId] = func;
 }
 
-RpcObject::RpcObject(RpcObjectId id) : object_id_(id), is_proxy_(true) {}
-
-RpcObject::~RpcObject() {
-    if (!is_proxy_) {
-        RpcSystem::UnregisterLocalObject(object_id_);
-    }
+void RpcObject::UnregisterFunction(RpcFunctionEnum funcId) {
+     std::lock_guard<std::mutex> lock(registry_mutex_);
+     function_registry_.erase(funcId);
 }
 
+RpcObject::RpcFunction RpcObject::FindFunction(RpcFunctionEnum funcId) {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    auto it = function_registry_.find(funcId);
+    return (it == function_registry_.end()) ? nullptr : it->second;
+}
 
 // --- Serializer Implementation ---
 void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
@@ -124,10 +129,8 @@ void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
         }
         case RpcValue::T_OBJECT_REF: {
             buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.obj_ref_.id), reinterpret_cast<const char*>(&val.obj_ref_.id) + sizeof(RpcObjectId));
-            uint32_t name_len = val.obj_ref_.class_name->length();
-            buffer.insert(buffer.end(), reinterpret_cast<const char*>(&name_len), reinterpret_cast<const char*>(&name_len) + sizeof(uint32_t));
-            buffer.insert(buffer.end(), val.obj_ref_.class_name->begin(), val.obj_ref_.class_name->end());
-            break;
+            buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.obj_ref_.class_id), reinterpret_cast<const char*>(&val.obj_ref_.class_id) + sizeof(RpcClassEnum));
+            break;            
         }
         case RpcValue::T_NULL:
             break;
@@ -185,13 +188,11 @@ RpcValue Serializer::deserialize(const char*& buffer_ptr, const char* buffer_end
             memcpy(&id, buffer_ptr, sizeof(RpcObjectId));
             buffer_ptr += sizeof(RpcObjectId);
 
-            uint32_t name_len;
-            memcpy(&name_len, buffer_ptr, sizeof(uint32_t));
-            buffer_ptr += sizeof(uint32_t);
-            std::string class_name(buffer_ptr, name_len);
-            buffer_ptr += name_len;
+            RpcClassEnum class_id;
+            memcpy(&class_id, buffer_ptr, sizeof(RpcClassEnum));
+            buffer_ptr += sizeof(RpcClassEnum);
             
-            RpcObject* obj = RpcSystem::FindOrCreateProxy(id, class_name);
+            RpcObject* obj = RpcSystem::FindOrCreateProxy(id, class_id);
             return RpcValue(obj);
         }
         case RpcValue::T_NULL:
@@ -279,16 +280,6 @@ bool RpcSystem::_IsConnected() {
     return pC2S_Buffer_ != nullptr && pS2C_Buffer_ != nullptr;
 }
 
-void RpcSystem::_RegisterFunction(const std::string& name, RpcFunction func) {
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-    function_registry_[name] = func;
-}
-
-void RpcSystem::_UnregisterFunction(const std::string& name) {
-     std::lock_guard<std::mutex> lock(registry_mutex_);
-     function_registry_.erase(name);
-}
-
 void RpcSystem::_StartServer() {
     is_server_ = true;
     std::string c2s_name = pipe_name_ + "_c2s";
@@ -368,11 +359,13 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         memcpy(&callId, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
 
-        uint32_t name_len;
-        memcpy(&name_len, ptr, sizeof(uint32_t));
-        ptr += sizeof(uint32_t);
-        std::string func_name(ptr, name_len);
-        ptr += name_len;
+        RpcObjectId objId;
+        memcpy(&objId, ptr, sizeof(RpcObjectId));
+        ptr += sizeof(RpcObjectId);
+
+        RpcFunctionEnum func_id;
+        memcpy(&func_id, ptr, sizeof(RpcFunctionEnum));
+        ptr += sizeof(RpcFunctionEnum);
 
         uint32_t arg_count;
         memcpy(&arg_count, ptr, sizeof(uint32_t));
@@ -383,29 +376,31 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
             args.push_back(Serializer::deserialize(ptr, end_ptr));
         }
 
-        //std::cout << "Received call for function: " << func_name << " with " << arg_count << " args." << std::endl;
-
         // Enqueue the task to be executed by the thread pool
-        EnqueueTask([this, func_name, args, callId] {
+        EnqueueTask([this, objId, func_id, args, callId] {
             RpcValue return_val;
             try {
-                RpcFunction func;
-                {
-                    std::lock_guard<std::mutex> lock(registry_mutex_);
-                    if (!function_registry_.count(func_name)) {
-                        throw std::runtime_error("Function not found: " + func_name);
-                    }
-                    func = function_registry_.at(func_name);
+                RpcObject* target_obj = _GetLocalObject(objId);
+                if (!target_obj) {
+                    throw std::runtime_error("Target object not found: " + std::to_string(objId));
                 }
+
+                RpcObject::RpcFunction func = target_obj->FindFunction(func_id);
+
                 if (func) {
                     return_val = func(args);
                 } else {
-                    throw std::runtime_error("Function not found: " + func_name);
+                    // Special case for static functions registered on object 0
+                    if (objId == 0) {
+                         throw std::runtime_error("Static function ID not found: " + std::to_string(func_id));
+                    } else {
+                         throw std::runtime_error("Method ID " + std::to_string(func_id) + " not found on object " + std::to_string(objId));
+                    }
                 }
             } catch (const std::exception& e) {
                 {
                     std::lock_guard<std::mutex> lock(cout_mutex_);
-                    std::cerr << "RPC Error on call to '" << func_name << "': " << e.what() << std::endl;
+                    std::cerr << "RPC Error on call to '" << func_id << "': " << e.what() << std::endl;
                 }
                 // return_val is default-constructed (T_NULL)
             }
@@ -491,7 +486,13 @@ void RpcSystem::_UnregisterLocalObject(RpcObjectId id) {
     local_objects_.erase(id);
 }
 
-RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, const std::string& className) {
+RpcObject* RpcSystem::_GetLocalObject(RpcObjectId id) {
+    std::lock_guard<std::mutex> lock(object_mutex_);
+    auto it = local_objects_.find(id);
+    return (it == local_objects_.end()) ? nullptr : it->second;
+}
+
+RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId) {
     std::lock_guard<std::mutex> lock(object_mutex_);
 
     // First, check if it's actually a local object being passed back to us
@@ -505,12 +506,12 @@ RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, const std::string& clas
     }
     
     // Create a new proxy using the registered factory
-    if (object_factories_.count(className)) {
-        auto new_proxy = object_factories_.at(className)(id);
+    if (object_factories_.count(classId)) {
+        auto new_proxy = object_factories_.at(classId)(id);
         RpcObject* proxy_ptr = new_proxy.get();
         remote_proxies_[id] = std::move(new_proxy);
         return proxy_ptr;
     }
 
-    throw std::runtime_error("Cannot create proxy: Class '" + className + "' is not registered.");
+    throw std::runtime_error("Cannot create proxy: Class ID '" + std::to_string(classId) + "' is not registered.");
 }

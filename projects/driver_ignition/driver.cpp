@@ -50,7 +50,7 @@ void *HmdDriverFactory(const char *pInterfaceName, int *pReturnCode) {
         }
 
         try {
-            RpcValue provider_val = RpcSystem::Call(vr::IServerTrackedDeviceProvider_Version);
+            RpcValue provider_val = RpcSystem::Call(RPCFunction_Get_ServerTrackedDeviceProvider, RpcValue());
             if (provider_val.isObject()) {
                  if (pReturnCode) *pReturnCode = vr::VRInitError_None;
                  g_pProviderProxy = static_cast<RpcServerTrackedDeviceProvider*>(provider_val.asObject());

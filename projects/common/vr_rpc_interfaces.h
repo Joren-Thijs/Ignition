@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rpc_core.h"
+#include "rpc_class_enum.h"
 #include <cstring>
 #include <openvr.hpp>
 
@@ -21,7 +22,7 @@ public:
     vr::DriverHandle_t GetDriverHandle() override;
 
     // RpcObject
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
 private:
     vr::IVRDriverContext* real_context_ = nullptr; // Only valid on the client
@@ -43,7 +44,7 @@ public:
     RpcServerTrackedDeviceProvider(RpcObjectId id);
     ~RpcServerTrackedDeviceProvider();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     // --- vr::IServerTrackedDeviceProvider implementation ---
     vr::EVRInitError Init(vr::IVRDriverContext *pDriverContext) override;
@@ -73,7 +74,7 @@ public:
     RpcDriverHost(RpcObjectId id);
     ~RpcDriverHost();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     // --- vr::IVRServerDriverHost implementation ---
     bool TrackedDeviceAdded(const char *pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver *pDriver) override;
@@ -103,7 +104,7 @@ public:
     RpcDriverLog(RpcObjectId id);
     ~RpcDriverLog();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     void Log(const char *pchLogMessage) override;
 
@@ -121,7 +122,7 @@ public:
     RpcSettings(RpcObjectId id);
     ~RpcSettings();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     const char *GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError) override;
     void SetBool(const char *pchSection, const char *pchSettingsKey, bool bValue, vr::EVRSettingsError *peError = nullptr) override;
@@ -152,7 +153,7 @@ public:
     RpcTrackedDeviceServerDriver(RpcObjectId id);
     ~RpcTrackedDeviceServerDriver();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     // --- vr::ITrackedDeviceServerDriver implementation ---
     vr::EVRInitError Activate(uint32_t unObjectId) override;
@@ -178,7 +179,7 @@ public:
     RpcDisplayComponent(RpcObjectId id);
     ~RpcDisplayComponent();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     // --- vr::IVRDisplayComponent implementation ---
     void GetWindowBounds(int32_t *pnX, int32_t *pnY, uint32_t *pnWidth, uint32_t *pnHeight) override;
@@ -206,7 +207,7 @@ public:
     RpcCameraComponent(RpcObjectId id);
     ~RpcCameraComponent();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     // --- vr::IVRCameraComponent implementation ---
     bool GetCameraFrameDimensions(vr::ECameraVideoStreamFormat nVideoStreamFormat, uint32_t *pWidth, uint32_t *pHeight) override;
@@ -245,7 +246,7 @@ public:
     RpcDriverInput(RpcObjectId id);
     ~RpcDriverInput();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     vr::EVRInputError CreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) override;
     vr::EVRInputError UpdateBooleanComponent(vr::VRInputComponentHandle_t ulComponent, bool bNewValue, double fTimeOffset) override;
@@ -273,7 +274,7 @@ public:
     RpcDriverManager(RpcObjectId id);
     ~RpcDriverManager();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     uint32_t GetDriverCount() const override;
     uint32_t GetDriverName(vr::DriverId_t nDriver, VR_OUT_STRING() char *pchValue, uint32_t unBufferSize) override;
@@ -294,7 +295,7 @@ public:
     RpcProperties(RpcObjectId id);
     ~RpcProperties();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     vr::ETrackedPropertyError ReadPropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyRead_t *pBatch, uint32_t unBatchEntryCount) override;
     vr::ETrackedPropertyError WritePropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyWrite_t *pBatch, uint32_t unBatchEntryCount) override;
@@ -315,7 +316,7 @@ public:
     RpcResources(RpcObjectId id);
     ~RpcResources();
 
-    const std::string& GetRpcClassName() const override;
+    RpcClassEnum GetRpcClassId() const override;
 
     uint32_t LoadSharedResource(const char *pchResourceName, char *pchBuffer, uint32_t unBufferLen) override;
     uint32_t GetResourceFullPath(const char *pchResourceName, const char *pchResourceTypeDirectory, VR_OUT_STRING() char *pchPathBuffer, uint32_t unBufferLen) override;

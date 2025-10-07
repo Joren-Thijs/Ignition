@@ -15,20 +15,18 @@ struct PropertyReadBatchResult {
 
 RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_properties_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "GetPropErrorNameFromEnum", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Properties_GetPropErrorNameFromEnum, [this](const auto& args) {
             const char* result_cstr = this->GetPropErrorNameFromEnum((vr::ETrackedPropertyError)args[0].asInt());
             std::string result = result_cstr ? result_cstr : "";
             return RpcValue(result);
         });
         
-        RpcSystem::RegisterFunction(prefix + "TrackedDeviceToPropertyContainer", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Properties_TrackedDeviceToPropertyContainer, [this](const auto& args) {
             vr::PropertyContainerHandle_t handle = this->TrackedDeviceToPropertyContainer((vr::TrackedDeviceIndex_t)args[0].asInt());
             return RpcValue(static_cast<uint64_t>(handle));
         });
 
-        RpcSystem::RegisterFunction(prefix + "WritePropertyBatch", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Properties_WritePropertyBatch, [this](const auto& args) {
             vr::PropertyContainerHandle_t ulContainerHandle = args[0].asUint64();
             auto batch_data = args[1].asPointer();
             const char* ptr = batch_data.first;
@@ -82,7 +80,7 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
             return RpcValue(return_buffer.data(), return_buffer.size());
         });
 
-        RpcSystem::RegisterFunction(prefix + "ReadPropertyBatch", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Properties_ReadPropertyBatch, [this](const auto& args) {
             vr::PropertyContainerHandle_t ulContainerHandle = args[0].asUint64();
             auto batch_data = args[1].asPointer();
             const char* ptr = batch_data.first;
@@ -123,9 +121,8 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
 RpcProperties::RpcProperties(RpcObjectId id) : RpcObject(id) {}
 RpcProperties::~RpcProperties() {}
 
-const std::string& RpcProperties::GetRpcClassName() const {
-    static const std::string name = "IVRProperties";
-    return name;
+RpcClassEnum RpcProperties::GetRpcClassId() const {
+    return Class_Properties;
 }
 
 vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle, vr::PropertyRead_t *pBatch, uint32_t unBatchEntryCount) {
@@ -137,7 +134,7 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
             request_buffer.insert(request_buffer.end(), (char*)&pBatch[i].unBufferSize, (char*)&pBatch[i].unBufferSize + sizeof(uint32_t));
         }
 
-        RpcValue result = RpcSystem::CallMethod(GetId(), "ReadPropertyBatch", RpcValue(ulContainerHandle), RpcValue(request_buffer.data(), request_buffer.size()));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_ReadPropertyBatch, RpcValue(ulContainerHandle), RpcValue(request_buffer.data(), request_buffer.size()));
 
         if (!result.isPointer()) {
             return vr::TrackedProp_IPCReadFailure;
@@ -208,7 +205,7 @@ vr::ETrackedPropertyError RpcProperties::WritePropertyBatch(vr::PropertyContaine
             }
         }
 
-        RpcValue result = RpcSystem::CallMethod(GetId(), "WritePropertyBatch", RpcValue(ulContainerHandle), RpcValue(buffer.data(), buffer.size()));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_WritePropertyBatch, RpcValue(ulContainerHandle), RpcValue(buffer.data(), buffer.size()));
 
         if (!result.isPointer()) return vr::TrackedProp_IPCReadFailure;
 
@@ -231,7 +228,7 @@ vr::ETrackedPropertyError RpcProperties::WritePropertyBatch(vr::PropertyContaine
 const char *RpcProperties::GetPropErrorNameFromEnum(vr::ETrackedPropertyError error) {
     if (IsProxy()) {
         static std::string error_name;
-        error_name = RpcSystem::CallMethod(GetId(), "GetPropErrorNameFromEnum", RpcValue((int)error)).asString();
+        error_name = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_GetPropErrorNameFromEnum, RpcValue((int)error)).asString();
         return error_name.c_str();
     }
     else {
@@ -240,7 +237,7 @@ const char *RpcProperties::GetPropErrorNameFromEnum(vr::ETrackedPropertyError er
 }
 vr::PropertyContainerHandle_t RpcProperties::TrackedDeviceToPropertyContainer(vr::TrackedDeviceIndex_t nDevice) {
     if (IsProxy()) {
-        auto handle = (vr::PropertyContainerHandle_t)RpcSystem::CallMethod(GetId(), "TrackedDeviceToPropertyContainer", RpcValue((int)nDevice)).asUint64();
+        auto handle = (vr::PropertyContainerHandle_t)RpcSystem::CallMethod(GetId(), RPCFunction_Properties_TrackedDeviceToPropertyContainer, RpcValue((int)nDevice)).asUint64();
         return handle;
     }
     else {

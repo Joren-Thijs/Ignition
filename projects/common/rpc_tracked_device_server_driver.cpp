@@ -6,34 +6,32 @@
 
 RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(vr::ITrackedDeviceServerDriver* real) : RpcObject(), real_driver_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "Activate", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_Activate, [this](const auto& args) {
             return RpcValue((int)this->Activate(args[0].asInt()));
         });
 
-        RpcSystem::RegisterFunction(prefix + "Deactivate", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_Deactivate, [this](const auto& args) {
             this->Deactivate();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_EnterStandby, [this](const auto& args) {
             this->EnterStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "DebugRequest", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_DebugRequest, [this](const auto& args) {
             char response_buf[vr::k_unMaxDriverDebugResponseSize];
             this->DebugRequest(args[0].asString().c_str(), response_buf, sizeof(response_buf));
             return RpcValue(std::string(response_buf));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetPose", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_GetPose, [this](const auto& args) {
             vr::DriverPose_t pose = this->GetPose();
             return RpcValue((const char*)&pose, sizeof(pose));
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetComponent", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_TrackedDeviceServerDriver_GetComponent, [this](const auto& args) {
             auto componentNameStr = args[0].asString();
             const char* componentName = componentNameStr.c_str();
             void* component = this->GetComponent(componentName);
@@ -54,14 +52,13 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(RpcObjectId id) : Rpc
 
 RpcTrackedDeviceServerDriver::~RpcTrackedDeviceServerDriver() {}
 
-const std::string& RpcTrackedDeviceServerDriver::GetRpcClassName() const {
-    static const std::string name = "ITrackedDeviceServerDriver";
-    return name;
+RpcClassEnum RpcTrackedDeviceServerDriver::GetRpcClassId() const {
+    return Class_TrackedDeviceServerDriver;
 }
 
 vr::EVRInitError RpcTrackedDeviceServerDriver::Activate(uint32_t unObjectId) {
     if (IsProxy()) {
-        return (vr::EVRInitError)RpcSystem::CallMethod(GetId(), "Activate", RpcValue((int)unObjectId)).asInt();
+        return (vr::EVRInitError)RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_Activate, RpcValue((int)unObjectId)).asInt();
     }
     else {
         return real_driver_->Activate(unObjectId);
@@ -70,7 +67,7 @@ vr::EVRInitError RpcTrackedDeviceServerDriver::Activate(uint32_t unObjectId) {
 
 void RpcTrackedDeviceServerDriver::Deactivate() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "Deactivate");
+        RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_Deactivate);
     }
     else {
         real_driver_->Deactivate();
@@ -79,7 +76,7 @@ void RpcTrackedDeviceServerDriver::Deactivate() {
 
 void RpcTrackedDeviceServerDriver::EnterStandby() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "EnterStandby");
+        RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_EnterStandby);
     }
     else {
         real_driver_->EnterStandby();
@@ -88,7 +85,7 @@ void RpcTrackedDeviceServerDriver::EnterStandby() {
 
 void *RpcTrackedDeviceServerDriver::GetComponent(const char *pchComponentNameAndVersion) {
     if (IsProxy()) { // Client-side proxy
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetComponent", RpcValue(std::string(pchComponentNameAndVersion)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_GetComponent, RpcValue(std::string(pchComponentNameAndVersion)));
         if (result.isObject()) {
             RpcObject* obj = result.asObject();
             if (!obj) {
@@ -131,7 +128,7 @@ void *RpcTrackedDeviceServerDriver::GetComponent(const char *pchComponentNameAnd
 void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pchResponseBuffer, uint32_t unResponseBufferSize) {
     if (IsProxy()) {
         if (!pchResponseBuffer || unResponseBufferSize == 0) return;
-        RpcValue result = RpcSystem::CallMethod(GetId(), "DebugRequest", RpcValue(std::string(pchRequest)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_DebugRequest, RpcValue(std::string(pchRequest)));
         std::string response = result.asString();
         if (pchResponseBuffer && unResponseBufferSize > 0) {
             memcpy(pchResponseBuffer, response.c_str(), std::min((size_t)unResponseBufferSize - 1, response.size()));
@@ -145,7 +142,7 @@ void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pc
 
 vr::DriverPose_t RpcTrackedDeviceServerDriver::GetPose() {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetPose");
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_GetPose);
         if (result.isPointer() && result.asPointer().second == sizeof(vr::DriverPose_t)) {
             return *reinterpret_cast<const vr::DriverPose_t*>(result.asPointer().first);
         }

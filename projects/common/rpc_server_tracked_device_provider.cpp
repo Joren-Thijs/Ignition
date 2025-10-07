@@ -12,9 +12,7 @@ bool hasStubbed = false;
 
 RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(vr::IServerTrackedDeviceProvider* real) : RpcObject(), real_provider_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "Init", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_Init, [this](const auto& args) {
             // The server receives the proxy to the client's context manager
             ClientContextManager* context_proxy = static_cast<ClientContextManager*>(args[0].asObject());
             
@@ -23,31 +21,31 @@ RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(vr::IServerTracke
             return RpcValue((int)result);
         });
         
-        RpcSystem::RegisterFunction(prefix + "ShouldBlockStandbyMode", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_ShouldBlockStandbyMode, [this](const auto& args) {
             return RpcValue((int)this->ShouldBlockStandbyMode());
         });
         
-        RpcSystem::RegisterFunction(prefix + "Cleanup", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_Cleanup, [this](const auto& args) {
             this->Cleanup();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "RunFrame", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_RunFrame, [this](const auto& args) {
             this->RunFrame();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "EnterStandby", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_EnterStandby, [this](const auto& args) {
             this->EnterStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "LeaveStandby", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_LeaveStandby, [this](const auto& args) {
             this->LeaveStandby();
             return RpcValue();
         });
 
-        RpcSystem::RegisterFunction(prefix + "GetInterfaceVersions", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_ServerTrackedDeviceProvider_GetInterfaceVersions, [this](const auto& args) {
             const char *const *versions = this->GetInterfaceVersions();
             if (!versions) {
                 return RpcValue();
@@ -67,9 +65,8 @@ RpcServerTrackedDeviceProvider::RpcServerTrackedDeviceProvider(RpcObjectId id) :
 
 RpcServerTrackedDeviceProvider::~RpcServerTrackedDeviceProvider() {}
 
-const std::string& RpcServerTrackedDeviceProvider::GetRpcClassName() const {
-    static const std::string name = "IServerTrackedDeviceProvider";
-    return name;
+RpcClassEnum RpcServerTrackedDeviceProvider::GetRpcClassId() const {
+    return Class_ServerTrackedDeviceProvider;
 }
 
 vr::EVRInitError RpcServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext) {
@@ -81,7 +78,7 @@ vr::EVRInitError RpcServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDri
         auto* context_manager = new ClientContextManager(pDriverContext);
 
         // Call the server's Init, passing a proxy to our context manager
-        RpcValue result = RpcSystem::CallMethod(GetId(), "Init", RpcValue(context_manager));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_Init, RpcValue(context_manager));
         return (vr::EVRInitError)result.asInt();
     }
     else {
@@ -91,7 +88,7 @@ vr::EVRInitError RpcServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDri
 
 void RpcServerTrackedDeviceProvider::Cleanup() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "Cleanup");
+        RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_Cleanup);
     }
     else {
         real_provider_->Cleanup();
@@ -105,7 +102,7 @@ const char *const *RpcServerTrackedDeviceProvider::GetInterfaceVersions() {
             return client_versions_ptrs_.data();
         }
 
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetInterfaceVersions");
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_GetInterfaceVersions);
         if (result.isString()) {
             const std::string& concatenated = result.asString();
             size_t start = 0;
@@ -133,7 +130,7 @@ const char *const *RpcServerTrackedDeviceProvider::GetInterfaceVersions() {
 
 void RpcServerTrackedDeviceProvider::RunFrame() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "RunFrame");
+        RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_RunFrame);
     }
     else {
         real_provider_->RunFrame();
@@ -172,7 +169,7 @@ void RpcServerTrackedDeviceProvider::RunFrame() {
 
 bool RpcServerTrackedDeviceProvider::ShouldBlockStandbyMode() {
     if (IsProxy()) {
-        return RpcSystem::CallMethod(GetId(), "ShouldBlockStandbyMode").asInt();
+        return RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_ShouldBlockStandbyMode).asInt();
     }
     else {
         return real_provider_->ShouldBlockStandbyMode();
@@ -181,7 +178,7 @@ bool RpcServerTrackedDeviceProvider::ShouldBlockStandbyMode() {
 
 void RpcServerTrackedDeviceProvider::EnterStandby() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "EnterStandby");
+        RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_EnterStandby);
     }
     else {
         real_provider_->EnterStandby();
@@ -190,7 +187,7 @@ void RpcServerTrackedDeviceProvider::EnterStandby() {
 
 void RpcServerTrackedDeviceProvider::LeaveStandby() {
     if (IsProxy()) {
-        RpcSystem::CallMethod(GetId(), "LeaveStandby");
+        RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_LeaveStandby);
     }
     else {
         real_provider_->LeaveStandby();

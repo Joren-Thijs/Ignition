@@ -4,9 +4,7 @@
 
 RpcResources::RpcResources(vr::IVRResources* real) : RpcObject(), real_resources_(real) {
     if (!IsProxy()) {
-        std::string prefix = std::to_string(GetId()) + ".";
-
-        RpcSystem::RegisterFunction(prefix + "LoadSharedResource", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Resources_LoadSharedResource, [this](const auto& args) {
             char buffer[4096]; // A reasonable max size for a resource
             const std::string resource_name = args[0].asString();
 
@@ -17,7 +15,7 @@ RpcResources::RpcResources(vr::IVRResources* real) : RpcObject(), real_resources
             return RpcValue();
         });
         
-        RpcSystem::RegisterFunction(prefix + "GetResourceFullPath", [this](const auto& args) {
+        this->RegisterFunction(RPCFunction_Resources_GetResourceFullPath, [this](const auto& args) {
             char buffer[4096];
             const std::string resource_name = args[0].asString();
             const std::string resource_type = args[1].asString();
@@ -32,9 +30,8 @@ RpcResources::RpcResources(vr::IVRResources* real) : RpcObject(), real_resources
 RpcResources::RpcResources(RpcObjectId id) : RpcObject(id) {}
 RpcResources::~RpcResources() {}
 
-const std::string& RpcResources::GetRpcClassName() const {
-    static const std::string name = "IVRResources";
-    return name;
+RpcClassEnum RpcResources::GetRpcClassId() const {
+    return Class_Resources;
 }
 
 uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pchBuffer, uint32_t unBufferLen) {
@@ -43,7 +40,7 @@ uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pch
             std::cout << "Warning: LoadSharedResource called with unBufferLen > 4096. You probably will have some issues..." << std::endl;
         }
 
-        RpcValue result = RpcSystem::CallMethod(GetId(), "LoadSharedResource", RpcValue(std::string(pchResourceName)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_LoadSharedResource, RpcValue(std::string(pchResourceName)));
         if (result.isString()) {
             std::string res = result.asString();
             if (pchBuffer && unBufferLen > 0) {
@@ -61,7 +58,7 @@ uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pch
 
 uint32_t RpcResources::GetResourceFullPath(const char *pchResourceName, const char *pchResourceTypeDirectory, char *pchPathBuffer, uint32_t unBufferLen) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), "GetResourceFullPath", RpcValue(std::string(pchResourceName)), RpcValue(std::string(pchResourceTypeDirectory)));
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_GetResourceFullPath, RpcValue(std::string(pchResourceName)), RpcValue(std::string(pchResourceTypeDirectory)));
         if (result.isString()) {
             std::string path = result.asString();
             if (pchPathBuffer && unBufferLen > 0) {
