@@ -1,8 +1,8 @@
 #include "openvr_driver.h"
 #include "rpc_interfaces.h"
-#include <iostream>
-#include <vector>
+
 #include <algorithm>
+#include <vector>
 
 // Helper struct to manage the memory for a property batch read result.
 struct PropertyReadBatchResult {
@@ -28,8 +28,8 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
 
         this->RegisterFunction(RPCFunction_Properties_WritePropertyBatch, [this](const auto& args) {
             vr::PropertyContainerHandle_t ulContainerHandle = args[0].asUint64();
-            auto batch_data = args[1].asPointer();
-            const char* ptr = batch_data.first;
+            auto batch_data = args[1].asByteArray();
+            const char* ptr = batch_data.data();
 
             uint32_t unBatchEntryCount;
             memcpy(&unBatchEntryCount, ptr, sizeof(uint32_t));
@@ -82,8 +82,8 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
 
         this->RegisterFunction(RPCFunction_Properties_ReadPropertyBatch, [this](const auto& args) {
             vr::PropertyContainerHandle_t ulContainerHandle = args[0].asUint64();
-            auto batch_data = args[1].asPointer();
-            const char* ptr = batch_data.first;
+            auto batch_data = args[1].asByteArray();
+            const char* ptr = batch_data.data();
 
             uint32_t unBatchEntryCount;
             memcpy(&unBatchEntryCount, ptr, sizeof(uint32_t));
@@ -136,14 +136,14 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
 
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_ReadPropertyBatch, RpcValue(ulContainerHandle), RpcValue(request_buffer.data(), request_buffer.size()));
 
-        if (!result.isPointer()) {
+        if (!result.isByteArray()) {
             return vr::TrackedProp_IPCReadFailure;
         }
 
-        auto response_data = result.asPointer();
+        auto response_data = result.asByteArray();
         
-        const char* ptr = response_data.first;
-        const char* end_ptr = ptr + response_data.second;
+        const char* ptr = response_data.data();
+        const char* end_ptr = ptr + response_data.size();
 
         PropertyReadBatchResult batchResult;
         batchResult.batch.resize(unBatchEntryCount);
@@ -207,10 +207,10 @@ vr::ETrackedPropertyError RpcProperties::WritePropertyBatch(vr::PropertyContaine
 
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_WritePropertyBatch, RpcValue(ulContainerHandle), RpcValue(buffer.data(), buffer.size()));
 
-        if (!result.isPointer()) return vr::TrackedProp_IPCReadFailure;
+        if (!result.isByteArray()) return vr::TrackedProp_IPCReadFailure;
 
-        auto response_data = result.asPointer();
-        const char* ptr = response_data.first;
+        auto response_data = result.asByteArray();
+        const char* ptr = response_data.data();
         vr::ETrackedPropertyError overallError;
         memcpy(&overallError, ptr, sizeof(vr::ETrackedPropertyError));
         ptr += sizeof(vr::ETrackedPropertyError);

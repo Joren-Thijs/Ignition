@@ -1,8 +1,10 @@
 #include "rpc_core.h"
 #include "mapped_event_circular_buffer_c.h"
-#include <stdexcept>
+
 #include <algorithm>
 #include <cassert>
+#include <iostream>
+#include <stdexcept>
 #include <vector>
 
 // --- RpcValue Implementation ---
@@ -14,14 +16,13 @@ RpcValue::RpcValue(RpcObject* v) : type_(T_OBJECT_REF) {
 
 RpcValue::RpcValue(const RpcValue& other) : type_(other.type_) {
     switch (type_) {
-        case T_INT:        int_val_    = other.int_val_;    break;
-        case T_FLOAT:      float_val_  = other.float_val_;  break;
-        case T_DOUBLE:     double_val_ = other.double_val_; break;
-        case T_UINT64:     uint64_val_ = other.uint64_val_; break;
-        case T_OBJECT_REF: obj_ref_    = other.obj_ref_;    break;
-        case T_STRING:     str_val_    = other.str_val_;    break;
-        case T_POINTER:    ptr_val_    = other.ptr_val_;    break;
-        case T_NULL:       /* Nothing to copy */            break;
+        case T_INT:        int_val_        = other.int_val_;        break;
+        case T_FLOAT:      float_val_      = other.float_val_;      break;
+        case T_DOUBLE:     double_val_     = other.double_val_;     break;
+        case T_UINT64:     uint64_val_     = other.uint64_val_;     break;
+        case T_OBJECT_REF: obj_ref_        = other.obj_ref_;        break;
+        case T_BYTE_ARRAY: byte_array_val_ = other.byte_array_val_; break;
+        case T_NULL:       /* Nothing to copy */                    break;
     }
 }
 
@@ -33,8 +34,7 @@ RpcValue& RpcValue::operator=(const RpcValue& other) {
 void RpcValue::swap(RpcValue& other) noexcept {
     using std::swap;
     swap(type_, other.type_);
-    swap(str_val_, other.str_val_);
-    swap(ptr_val_, other.ptr_val_);
+    swap(byte_array_val_, other.byte_array_val_); // Swaps both string and pointer data
 
     // The union can be swapped safely with a temporary buffer
     // that is large enough to hold the largest member.
@@ -58,28 +58,26 @@ double RpcValue::asDouble() const {
     if (!isDouble()) throw std::runtime_error("RpcValue is not a double.");
     return double_val_;
 }
-std::string RpcValue::asString() const {
-    if (!isString()) throw std::runtime_error("RpcValue is not a string.");
-    return str_val_;
-}
 uint64_t RpcValue::asUint64() const {
     if (!isUint64())
     {
-        throw std::runtime_error("RpcValue is not a uint64.");
+        throw std::runtime_error("RpcValue is not a uint64_t.");
     }
     return uint64_val_;
 }
-std::pair<const char*, size_t> RpcValue::asPointer() const {
-    if (!isPointer()) throw std::runtime_error("RpcValue is not a pointer.");
-    return {ptr_val_.data(), ptr_val_.size()};
+const std::vector<char>& RpcValue::asByteArray() const {
+    if (!isByteArray()) throw std::runtime_error("RpcValue is not a byte array (vector).");
+    return byte_array_val_;
 }
 RpcObject* RpcValue::asObject() const {
     if (!isObject()) throw std::runtime_error("RpcValue is not an object reference.");
     return RpcSystem::GetInstance()._FindOrCreateProxy(obj_ref_.id, obj_ref_.class_id);
 }
 
-// --- RpcObject Implementation ---
-
+std::string RpcValue::asString() const {
+    if (!isByteArray()) throw std::runtime_error("RpcValue is not a byte array (string).");
+    return std::string(byte_array_val_.begin(), byte_array_val_.end());
+}
 
 // --- RpcObject Implementation ---
 void RpcObject::RegisterFunction(RpcFunctionEnum funcId, RpcFunction func) {
@@ -92,14 +90,14 @@ void RpcObject::UnregisterFunction(RpcFunctionEnum funcId) {
      function_registry_.erase(funcId);
 }
 
-RpcObject::RpcFunction RpcObject::FindFunction(RpcFunctionEnum funcId) {
+RpcFunction RpcObject::FindFunction(RpcFunctionEnum funcId) {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     auto it = function_registry_.find(funcId);
     return (it == function_registry_.end()) ? nullptr : it->second;
 }
 
-// --- Serializer Implementation ---
-void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
+// --- RpcSerializer Implementation ---
+void RpcSerializer::Serialize(std::vector<char>& buffer, const RpcValue& val) {
     buffer.push_back(static_cast<char>(val.type_));
     switch (val.type_) {
         case RpcValue::T_INT: {
@@ -118,10 +116,8 @@ void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
             buffer.insert(buffer.end(), reinterpret_cast<const char*>(&val.uint64_val_), reinterpret_cast<const char*>(&val.uint64_val_) + sizeof(uint64_t));
             break;
         }
-        case RpcValue::T_STRING:
-        case RpcValue::T_POINTER: {
-            const auto& data_vec = (val.type_ == RpcValue::T_STRING) ?
-                std::vector<char>(val.str_val_.begin(), val.str_val_.end()) : val.ptr_val_;
+        case RpcValue::T_BYTE_ARRAY: {
+            const auto& data_vec = val.byte_array_val_;
             uint32_t len = data_vec.size();
             buffer.insert(buffer.end(), reinterpret_cast<const char*>(&len), reinterpret_cast<const char*>(&len) + sizeof(uint32_t));
             buffer.insert(buffer.end(), data_vec.begin(), data_vec.end());
@@ -137,62 +133,54 @@ void Serializer::serialize(std::vector<char>& buffer, const RpcValue& val) {
     }
 }
 
-RpcValue Serializer::deserialize(const char*& buffer_ptr, const char* buffer_end) {
-    if (buffer_ptr >= buffer_end) throw std::runtime_error("Deserialization buffer underflow.");
+RpcValue RpcSerializer::Deserialize(const char*& bufferPtr, const char* bufferEnd) {
+    if (bufferPtr >= bufferEnd) throw std::runtime_error("Deserialization buffer underflow.");
     
-    RpcValue::Type type = static_cast<RpcValue::Type>(*buffer_ptr++);
+    RpcValue::Type type = static_cast<RpcValue::Type>(*bufferPtr++);
     
     switch (type) {
         case RpcValue::T_INT: {
             int val;
-            memcpy(&val, buffer_ptr, sizeof(int));
-            buffer_ptr += sizeof(int);
+            memcpy(&val, bufferPtr, sizeof(int));
+            bufferPtr += sizeof(int);
             return RpcValue(val);
         }
         case RpcValue::T_FLOAT: {
             float val;
-            memcpy(&val, buffer_ptr, sizeof(float));
-            buffer_ptr += sizeof(float);
+            memcpy(&val, bufferPtr, sizeof(float));
+            bufferPtr += sizeof(float);
             return RpcValue(val);
         }
         case RpcValue::T_DOUBLE: {
             double val;
-            memcpy(&val, buffer_ptr, sizeof(double));
-            buffer_ptr += sizeof(double);
+            memcpy(&val, bufferPtr, sizeof(double));
+            bufferPtr += sizeof(double);
             return RpcValue(val);
         }
         case RpcValue::T_UINT64: {
             uint64_t val;
-            memcpy(&val, buffer_ptr, sizeof(uint64_t));
-            buffer_ptr += sizeof(uint64_t);
+            memcpy(&val, bufferPtr, sizeof(uint64_t));
+            bufferPtr += sizeof(uint64_t);
             return RpcValue(val);
         }
-        case RpcValue::T_STRING: {
+        case RpcValue::T_BYTE_ARRAY: {
             uint32_t len;
-            memcpy(&len, buffer_ptr, sizeof(uint32_t));
-            buffer_ptr += sizeof(uint32_t);
-            std::string s(buffer_ptr, len);
-            buffer_ptr += len;
-            return RpcValue(s);
-        }
-        case RpcValue::T_POINTER: {
-            uint32_t len;
-            memcpy(&len, buffer_ptr, sizeof(uint32_t));
-            buffer_ptr += sizeof(uint32_t);
-            RpcValue v(buffer_ptr, len);
-            buffer_ptr += len;
+            memcpy(&len, bufferPtr, sizeof(uint32_t));
+            bufferPtr += sizeof(uint32_t);
+            RpcValue v(bufferPtr, len);
+            bufferPtr += len;
             return v;
         }
         case RpcValue::T_OBJECT_REF: {
             RpcObjectId id;
-            memcpy(&id, buffer_ptr, sizeof(RpcObjectId));
-            buffer_ptr += sizeof(RpcObjectId);
+            memcpy(&id, bufferPtr, sizeof(RpcObjectId));
+            bufferPtr += sizeof(RpcObjectId);
 
             RpcClassEnum class_id;
-            memcpy(&class_id, buffer_ptr, sizeof(RpcClassEnum));
-            buffer_ptr += sizeof(RpcClassEnum);
+            memcpy(&class_id, bufferPtr, sizeof(RpcClassEnum));
+            bufferPtr += sizeof(RpcClassEnum);
             
-            RpcObject* obj = RpcSystem::FindOrCreateProxy(id, class_id);
+            RpcObject* obj = RpcSystem::GetInstance()._FindOrCreateProxy(id, class_id);
             return RpcValue(obj);
         }
         case RpcValue::T_NULL:
@@ -246,9 +234,9 @@ void RpcSystem::_Shutdown() {
     remote_proxies_.clear();
 }
 
-void RpcSystem::_InitializeThreadPool(size_t num_threads) {
+void RpcSystem::_InitializeThreadPool(size_t numThreads) {
     stop_thread_pool_ = false;
-    for (size_t i = 0; i < num_threads; ++i) {
+    for (size_t i = 0; i < numThreads; ++i) {
         worker_threads_.emplace_back([this] {
             while (true) {
                 std::function<void()> task;
@@ -294,11 +282,6 @@ void RpcSystem::_StartServer() {
         throw std::runtime_error("Failed to create shared memory buffers.");
     }
 
-    {
-        std::lock_guard<std::mutex> lock(cout_mutex_);
-        std::cout << "Shared memory server running. Waiting for client..." << std::endl;
-    }
-
     listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop, this);
 }
 
@@ -314,11 +297,6 @@ bool RpcSystem::_ConnectToServer() {
         std::cerr << "Failed to open shared memory buffers." << std::endl;
         _Shutdown();
         return false;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(cout_mutex_);
-        std::cout << "Connected to shared memory server." << std::endl;
     }
 
     listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop, this);
@@ -351,10 +329,10 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
     if (buffer.empty()) return;
 
     const char* ptr = buffer.data();
-    const char* end_ptr = buffer.data() + buffer.size();
-    char msg_type = *ptr++;
+    const char* endPtr = buffer.data() + buffer.size();
+    char msgType = *ptr++;
     
-    if (msg_type == 'C') { // Call
+    if (msgType == 'C') { // Call
         uint32_t callId;
         memcpy(&callId, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
@@ -363,65 +341,62 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         memcpy(&objId, ptr, sizeof(RpcObjectId));
         ptr += sizeof(RpcObjectId);
 
-        RpcFunctionEnum func_id;
-        memcpy(&func_id, ptr, sizeof(RpcFunctionEnum));
+        RpcFunctionEnum funcId;
+        memcpy(&funcId, ptr, sizeof(RpcFunctionEnum));
         ptr += sizeof(RpcFunctionEnum);
 
-        uint32_t arg_count;
-        memcpy(&arg_count, ptr, sizeof(uint32_t));
+        uint32_t argCount;
+        memcpy(&argCount, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
         
         std::vector<RpcValue> args;
-        for (uint32_t i = 0; i < arg_count; ++i) {
-            args.push_back(Serializer::deserialize(ptr, end_ptr));
+        for (uint32_t i = 0; i < argCount; ++i) {
+            args.push_back(RpcSerializer::Deserialize(ptr, endPtr));
         }
 
         // Enqueue the task to be executed by the thread pool
-        EnqueueTask([this, objId, func_id, args, callId] {
-            RpcValue return_val;
+        EnqueueTask([this, objId, funcId, args, callId] {
+            RpcValue returnVal;
             try {
                 if (objId == 0) { // Static function call
-                    RpcFunction func = _FindFunction(func_id);
+                    RpcFunction func = _FindFunction(funcId);
                     if (func) {
-                        return_val = func(args);
+                        returnVal = func(args);
                     } else {
-                        throw std::runtime_error("Static function ID not found: " + std::to_string(func_id));
+                        throw std::runtime_error("Static function ID not found: " + std::to_string(funcId));
                     }
                 } else {
                     RpcObject* target_obj = _GetLocalObject(objId);
                     if (!target_obj) {
                         throw std::runtime_error("Target object not found: " + std::to_string(objId));
                     }
-                    RpcObject::RpcFunction func = target_obj->FindFunction(func_id);
+                    RpcFunction func = target_obj->FindFunction(funcId);
                     if (func) {
-                        return_val = func(args);
+                        returnVal = func(args);
                     } else {
-                         throw std::runtime_error("Method ID " + std::to_string(func_id) + " not found on object " + std::to_string(objId));
+                         throw std::runtime_error("Method ID " + std::to_string(funcId) + " not found on object " + std::to_string(objId));
                     }
                 }
             } catch (const std::exception& e) {
-                {
-                    std::lock_guard<std::mutex> lock(cout_mutex_);
-                    std::cerr << "RPC Error on call to '" << func_id << "': " << e.what() << std::endl;
-                }
-                // return_val is default-constructed (T_NULL)
+                std::cerr << "RPC Error on call to '" << funcId << "': " << e.what() << std::endl;
+                // returnVal is default-constructed (T_NULL)
             }
 
-            std::vector<char> return_buffer;
-            char return_msg_type = 'R'; // 'R' for Return
-            return_buffer.push_back(return_msg_type);
-            return_buffer.insert(return_buffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
-            Serializer::serialize(return_buffer, return_val);
+            std::vector<char> returnBuffer;
+            char returnMsgType = 'R'; // 'R' for Return
+            returnBuffer.push_back(returnMsgType);
+            returnBuffer.insert(returnBuffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
+            RpcSerializer::Serialize(returnBuffer, returnVal);
 
-            SendRPCMessage(return_buffer);
+            SendRPCMessage(returnBuffer);
         });
 
-    } else if (msg_type == 'R') { // Return
+    } else if (msgType == 'R') { // Return
         uint32_t callId;
         memcpy(&callId, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
 
-        RpcValue val = Serializer::deserialize(ptr, end_ptr);
+        RpcValue val = RpcSerializer::Deserialize(ptr, endPtr);
         
         std::shared_ptr<PendingCall> pendingCall;
         {
@@ -440,17 +415,11 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         }
         else
         {
-            {
-                std::lock_guard<std::mutex> lock(cout_mutex_);
-                std::cerr << "Received return for unknown call ID: " << callId << std::endl;
-            }
+            std::cerr << "Received return for unknown call ID: " << callId << std::endl;
         }
     }
     else {
-        {
-            std::lock_guard<std::mutex> lock(cout_mutex_);
-            std::cerr << "Unknown message type received: " << msg_type << std::endl;
-        }
+        std::cerr << "Unknown message type received: " << msgType << std::endl;
     }
 }
 
@@ -473,9 +442,9 @@ RpcObjectId RpcSystem::_GenerateObjectId() {
     // Simple increment for now. A real system might want UUIDs.
     // If this is a server, generate from the upper half of the range.
     // If a client, from the lower half. This prevents collisions.
-    static bool is_server_init = is_server_;
-    static std::atomic<uint64_t> local_next_id{ is_server_init ? (1ULL << 32) : 1 };
-    return local_next_id++;
+    static bool isServerInit = is_server_;
+    static std::atomic<uint64_t> localNextId{ isServerInit ? (1ULL << 32) : 1 };
+    return localNextId++;
 }
 
 void RpcSystem::_RegisterLocalObject(RpcObject* obj) {
@@ -498,7 +467,7 @@ void RpcSystem::_UnregisterFunction(RpcFunctionEnum funcId) {
     static_function_registry_.erase(funcId);
 }
 
-RpcSystem::RpcFunction RpcSystem::_FindFunction(RpcFunctionEnum funcId) {
+RpcFunction RpcSystem::_FindFunction(RpcFunctionEnum funcId) {
     std::lock_guard<std::mutex> lock(object_mutex_);
     auto it = static_function_registry_.find(funcId);
     return (it == static_function_registry_.end()) ? nullptr : it->second;
@@ -547,22 +516,17 @@ RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, cons
         pending_calls_[callId] = pendingCall;
     }
 
-    // {
-    //      std::lock_guard<std::mutex> lock(cout_mutex_);
-    //      std::cout << "RPC InternalCall to obj " << objId << " func " << funcId << " with callId " << callId << std::endl;
-    // }
-
     std::vector<char> buffer;
-    char msg_type = 'C'; // 'C' for Call
-    buffer.push_back(msg_type);
+    char msgType = 'C';
+    buffer.push_back(msgType);
     buffer.insert(buffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
     buffer.insert(buffer.end(), reinterpret_cast<const char*>(&objId), reinterpret_cast<const char*>(&objId) + sizeof(objId));
     buffer.insert(buffer.end(), reinterpret_cast<const char*>(&funcId), reinterpret_cast<const char*>(&funcId) + sizeof(funcId));
 
-    uint32_t arg_count = args.size();
-    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&arg_count), reinterpret_cast<const char*>(&arg_count) + sizeof(arg_count));
+    uint32_t argCount = args.size();
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&argCount), reinterpret_cast<const char*>(&argCount) + sizeof(argCount));
     for (const auto& arg : args) {
-        Serializer::serialize(buffer, arg);
+        RpcSerializer::Serialize(buffer, arg);
     }
 
     SendRPCMessage(buffer);

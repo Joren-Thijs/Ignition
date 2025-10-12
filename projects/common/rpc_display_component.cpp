@@ -65,8 +65,8 @@ RpcClassEnum RpcDisplayComponent::GetRpcClassId() const {
 void RpcDisplayComponent::GetWindowBounds(int32_t *pnX, int32_t *pnY, uint32_t *pnWidth, uint32_t *pnHeight) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_GetWindowBounds);
-        if (result.isPointer() && result.asPointer().second == sizeof(int32_t) * 4) {
-            const int32_t* data = reinterpret_cast<const int32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(int32_t) * 4) {
+            const int32_t* data = reinterpret_cast<const int32_t*>(result.asByteArray().data());
             *pnX = data[0]; *pnY = data[1]; *pnWidth = data[2]; *pnHeight = data[3];
         }
     }
@@ -90,8 +90,8 @@ bool RpcDisplayComponent::IsDisplayRealDisplay() {
 void RpcDisplayComponent::GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_GetRecommendedRenderTargetSize);
-        if (result.isPointer() && result.asPointer().second == sizeof(uint32_t) * 2) {
-            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(uint32_t) * 2) {
+            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asByteArray().data());
             *pnWidth = data[0]; *pnHeight = data[1];
         }
     }
@@ -103,8 +103,8 @@ void RpcDisplayComponent::GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint
 void RpcDisplayComponent::GetEyeOutputViewport(vr::EVREye eEye, uint32_t *pnX, uint32_t *pnY, uint32_t *pnWidth, uint32_t *pnHeight) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_GetEyeOutputViewport, RpcValue((int)eEye));
-        if (result.isPointer() && result.asPointer().second == sizeof(uint32_t) * 4) {
-            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(uint32_t) * 4) {
+            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asByteArray().data());
             *pnX = data[0]; *pnY = data[1]; *pnWidth = data[2]; *pnHeight = data[3];
         }
     }
@@ -116,8 +116,8 @@ void RpcDisplayComponent::GetEyeOutputViewport(vr::EVREye eEye, uint32_t *pnX, u
 void RpcDisplayComponent::GetProjectionRaw(vr::EVREye eEye, float *pfLeft, float *pfRight, float *pfTop, float *pfBottom) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_GetProjectionRaw, RpcValue((int)eEye));
-        if (result.isPointer() && result.asPointer().second == sizeof(float) * 4) {
-            const float* data = reinterpret_cast<const float*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(float) * 4) {
+            const float* data = reinterpret_cast<const float*>(result.asByteArray().data());
             *pfLeft = data[0]; *pfRight = data[1]; *pfTop = data[2]; *pfBottom = data[3];
         }
     }
@@ -129,8 +129,8 @@ void RpcDisplayComponent::GetProjectionRaw(vr::EVREye eEye, float *pfLeft, float
 vr::DistortionCoordinates_t RpcDisplayComponent::ComputeDistortion(vr::EVREye eEye, float fU, float fV) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_ComputeDistortion, RpcValue((int)eEye), RpcValue(fU), RpcValue(fV));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::DistortionCoordinates_t)) {
-            return *reinterpret_cast<const vr::DistortionCoordinates_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::DistortionCoordinates_t)) {
+            return *reinterpret_cast<const vr::DistortionCoordinates_t*>(result.asByteArray().data());
         }
         return vr::DistortionCoordinates_t();
     }
@@ -142,9 +142,9 @@ vr::DistortionCoordinates_t RpcDisplayComponent::ComputeDistortion(vr::EVREye eE
 bool RpcDisplayComponent::ComputeInverseDistortion(vr::HmdVector2_t *pResult, vr::EVREye eEye, uint32_t unChannel, float fU, float fV) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DisplayComponent_ComputeInverseDistortion, RpcValue((int)eEye), RpcValue((int)unChannel), RpcValue(fU), RpcValue(fV));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::HmdVector2_t)) {
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::HmdVector2_t)) {
             if (pResult) {
-                *pResult = *reinterpret_cast<const vr::HmdVector2_t*>(result.asPointer().first);
+                *pResult = *reinterpret_cast<const vr::HmdVector2_t*>(result.asByteArray().data());
             }
             return true;
         }

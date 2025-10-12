@@ -28,10 +28,10 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
 
         this->RegisterFunction(RPCFunction_DriverHost_TrackedDevicePoseUpdated, [this](const auto& args) {
             uint32_t which_device = (uint32_t)args[0].asInt();
-            auto pose_data = args[1].asPointer();
+            auto pose_data = args[1].asByteArray();
             vr::DriverPose_t new_pose;
-            if (pose_data.second == sizeof(vr::DriverPose_t)) {
-                memcpy(&new_pose, pose_data.first, sizeof(vr::DriverPose_t));
+            if (pose_data.size() == sizeof(vr::DriverPose_t)) {
+                memcpy(&new_pose, pose_data.data(), sizeof(vr::DriverPose_t));
                 uint32_t pose_size = sizeof(vr::DriverPose_t);
                 this->TrackedDevicePoseUpdated(which_device, new_pose, pose_size);
             }
@@ -41,13 +41,13 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
         this->RegisterFunction(RPCFunction_DriverHost_VendorSpecificEvent, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
             auto eventType = (vr::EVREventType)args[1].asInt();
-            auto eventDataPair = args[2].asPointer();
+            auto eventDataPair = args[2].asByteArray();
             double eventTimeOffset = (double)args[3].asDouble();
 
             vr::VREvent_Data_t eventData;
-            if (eventDataPair.second == sizeof(vr::VREvent_Data_t))
+            if (eventDataPair.size() == sizeof(vr::VREvent_Data_t))
             {
-                memcpy(&eventData, eventDataPair.first, sizeof(vr::VREvent_Data_t));
+                memcpy(&eventData, eventDataPair.data(), sizeof(vr::VREvent_Data_t));
                 this->VendorSpecificEvent(unWhichDevice, eventType, eventData, eventTimeOffset);
             }
             return RpcValue();
@@ -119,11 +119,11 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
 
         this->RegisterFunction(RPCFunction_DriverHost_SetDisplayEyeToHead, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
-            auto leftEyeData = args[1].asPointer();
-            auto rightEyeData = args[2].asPointer();
+            auto leftEyeData = args[1].asByteArray();
+            auto rightEyeData = args[2].asByteArray();
 
-            if (leftEyeData.second == sizeof(vr::HmdMatrix34_t) && rightEyeData.second == sizeof(vr::HmdMatrix34_t)) {
-                this->SetDisplayEyeToHead(unWhichDevice, *reinterpret_cast<const vr::HmdMatrix34_t*>(leftEyeData.first), *reinterpret_cast<const vr::HmdMatrix34_t*>(rightEyeData.first));
+            if (leftEyeData.size() == sizeof(vr::HmdMatrix34_t) && rightEyeData.size() == sizeof(vr::HmdMatrix34_t)) {
+                this->SetDisplayEyeToHead(unWhichDevice, *reinterpret_cast<const vr::HmdMatrix34_t*>(leftEyeData.data()), *reinterpret_cast<const vr::HmdMatrix34_t*>(rightEyeData.data()));
             }
 
             return RpcValue();
@@ -131,11 +131,11 @@ RpcDriverHost::RpcDriverHost(vr::IVRServerDriverHost* real) : RpcObject(), real_
 
         this->RegisterFunction(RPCFunction_DriverHost_SetDisplayProjectionRaw, [this](const auto& args) {
             uint32_t unWhichDevice = (uint32_t)args[0].asInt();
-            auto leftEyeData = args[1].asPointer();
-            auto rightEyeData = args[2].asPointer();
+            auto leftEyeData = args[1].asByteArray();
+            auto rightEyeData = args[2].asByteArray();
 
-            if (leftEyeData.second == sizeof(vr::HmdRect2_t) && rightEyeData.second == sizeof(vr::HmdRect2_t)) {
-                this->SetDisplayProjectionRaw(unWhichDevice, *reinterpret_cast<const vr::HmdRect2_t*>(leftEyeData.first), *reinterpret_cast<const vr::HmdRect2_t*>(rightEyeData.first));
+            if (leftEyeData.size() == sizeof(vr::HmdRect2_t) && rightEyeData.size() == sizeof(vr::HmdRect2_t)) {
+                this->SetDisplayProjectionRaw(unWhichDevice, *reinterpret_cast<const vr::HmdRect2_t*>(leftEyeData.data()), *reinterpret_cast<const vr::HmdRect2_t*>(rightEyeData.data()));
             }
 
             return RpcValue();
@@ -210,14 +210,14 @@ bool RpcDriverHost::IsExiting() {
 bool RpcDriverHost::PollNextEvent(vr::VREvent_t *pEvent, uint32_t uncbVREvent) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_PollNextEvent, RpcValue((int)uncbVREvent));
-        if (result.isPointer()) {
-            auto data = result.asPointer();
-            if (data.second == sizeof(vr::VREvent_t)) {
-                memcpy(pEvent, data.first, data.second);
+        if (result.isByteArray()) {
+            auto data = result.asByteArray();
+            if (data.size() == sizeof(vr::VREvent_t)) {
+                memcpy(pEvent, data.data(), data.size());
                 return true;
             }
             else {
-                std::cerr << "Warning: PollNextEvent returned data of unexpected size " << data.second << std::endl;
+                std::cerr << "Warning: PollNextEvent returned data of unexpected size " << data.size() << std::endl;
             }
         }
         return false; // No event
@@ -233,10 +233,10 @@ void RpcDriverHost::GetRawTrackedDevicePoses(float fPredictedSecondsFromNow, vr:
             return;
         }
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_GetRawTrackedDevicePoses, RpcValue(fPredictedSecondsFromNow), RpcValue((int)unTrackedDevicePoseArrayCount));
-        if (result.isPointer()) {
-            auto data = result.asPointer();
-            size_t bytesToCopy = std::min(data.second, (size_t)unTrackedDevicePoseArrayCount * sizeof(vr::TrackedDevicePose_t));
-            memcpy(pTrackedDevicePoseArray, data.first, bytesToCopy);
+        if (result.isByteArray()) {
+            auto data = result.asByteArray();
+            size_t bytesToCopy = std::min(data.size(), (size_t)unTrackedDevicePoseArrayCount * sizeof(vr::TrackedDevicePose_t));
+            memcpy(pTrackedDevicePoseArray, data.data(), bytesToCopy);
         }
     }
     else {
@@ -259,11 +259,11 @@ uint32_t RpcDriverHost::GetFrameTimings(vr::Compositor_FrameTiming *pTiming, uin
             return 0;
         }
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverHost_GetFrameTimings, RpcValue((int)nFrames));
-        if (result.isPointer()) {
-            auto data = result.asPointer();
-            uint32_t framesRead = data.second / sizeof(vr::Compositor_FrameTiming);
+        if (result.isByteArray()) {
+            auto data = result.asByteArray();
+            uint32_t framesRead = data.size() / sizeof(vr::Compositor_FrameTiming);
             uint32_t framesToCopy = std::min(nFrames, framesRead);
-            memcpy(pTiming, data.first, framesToCopy * sizeof(vr::Compositor_FrameTiming));
+            memcpy(pTiming, data.data(), framesToCopy * sizeof(vr::Compositor_FrameTiming));
             return framesToCopy;
         }
         return 0;

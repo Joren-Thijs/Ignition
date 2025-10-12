@@ -1,29 +1,37 @@
+#include "rpc_core.h"
 #include "rpc_interfaces.h"
+
+#include <cstdint>
+#include <vector>
 
 // --- RpcResources ---
 
 RpcResources::RpcResources(vr::IVRResources* real) : RpcObject(), real_resources_(real) {
     if (!IsProxy()) {
         this->RegisterFunction(RPCFunction_Resources_LoadSharedResource, [this](const auto& args) {
-            char buffer[4096]; // A reasonable max size for a resource
-            const std::string resource_name = args[0].asString();
+            std::vector<char> buffer;
 
-            uint32_t result = this->LoadSharedResource(resource_name.c_str(), buffer, sizeof(buffer));
-            if (result > 0 && result <= sizeof(buffer)) {
-                return RpcValue(std::string(buffer));
+            const std::string resource_name = args[0].asString();
+            buffer.resize(args[1].asUint64());
+
+            uint32_t size = this->LoadSharedResource(resource_name.c_str(), buffer.data(), buffer.size());
+            if (size > 0 && size <= buffer.size()) {
+                return RpcValue(buffer);
             }
-            return RpcValue();
+            return RpcValue(static_cast<uint64_t>(size));
         });
         
         this->RegisterFunction(RPCFunction_Resources_GetResourceFullPath, [this](const auto& args) {
-            char buffer[4096];
+            std::vector<char> buffer;
             const std::string resource_name = args[0].asString();
             const std::string resource_type = args[1].asString();
-            uint32_t result = this->GetResourceFullPath(resource_name.c_str(), resource_type.c_str(), buffer, sizeof(buffer));
-            if (result > 0 && result <= sizeof(buffer)) {
-                return RpcValue(std::string(buffer));
+            buffer.resize(args[2].asUint64());
+
+            uint32_t size = this->GetResourceFullPath(resource_name.c_str(), resource_type.c_str(), buffer.data(), buffer.size());
+            if (size > 0 && size <= sizeof(buffer)) {
+                return RpcValue(buffer);
             }
-            return RpcValue();
+            return RpcValue(static_cast<uint64_t>(size));
         });
     }
 }
@@ -36,20 +44,17 @@ RpcClassEnum RpcResources::GetRpcClassId() const {
 
 uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pchBuffer, uint32_t unBufferLen) {
     if (IsProxy()) {
-        if (unBufferLen > 4096) {
-            std::cout << "Warning: LoadSharedResource called with unBufferLen > 4096. You probably will have some issues..." << std::endl;
-        }
-
-        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_LoadSharedResource, RpcValue(std::string(pchResourceName)));
-        if (result.isString()) {
-            std::string res = result.asString();
-            if (pchBuffer && unBufferLen > 0) {
-                memcpy(pchBuffer, res.c_str(), std::min((size_t)unBufferLen - 1, res.size()));
-                pchBuffer[std::min((size_t)unBufferLen - 1, res.size())] = '\0';
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_LoadSharedResource, RpcValue(std::string(pchResourceName)), RpcValue(static_cast<uint64_t>(unBufferLen)));
+        if (result.isByteArray()) {
+            std::vector<char> res = result.asByteArray();
+            if (pchBuffer) {
+                memcpy(pchBuffer, res.data(), res.size());
             }
-            return res.length() + 1;
+            return res.size();
         }
-        return 0;
+        else {
+            return static_cast<uint32_t>(result.asUint64());      
+        }
     }
     else {
         return real_resources_->LoadSharedResource(pchResourceName, pchBuffer, unBufferLen);
@@ -58,16 +63,17 @@ uint32_t RpcResources::LoadSharedResource(const char *pchResourceName, char *pch
 
 uint32_t RpcResources::GetResourceFullPath(const char *pchResourceName, const char *pchResourceTypeDirectory, char *pchPathBuffer, uint32_t unBufferLen) {
     if (IsProxy()) {
-        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_GetResourceFullPath, RpcValue(std::string(pchResourceName)), RpcValue(std::string(pchResourceTypeDirectory)));
-        if (result.isString()) {
-            std::string path = result.asString();
-            if (pchPathBuffer && unBufferLen > 0) {
-                memcpy(pchPathBuffer, path.c_str(), std::min((size_t)unBufferLen - 1, path.size()));
-                pchPathBuffer[std::min((size_t)unBufferLen - 1, path.size())] = '\0';
+        RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Resources_GetResourceFullPath, RpcValue(std::string(pchResourceName)), RpcValue(std::string(pchResourceTypeDirectory)), RpcValue(static_cast<uint64_t>(unBufferLen)));
+        if (result.isByteArray()) {
+            std::vector<char> path = result.asByteArray();
+            if (pchPathBuffer) {
+                memcpy(pchPathBuffer, path.data(), path.size());
             }
-            return path.length() + 1;
+            return path.size();
         }
-        return 0;
+        else {
+            return static_cast<uint32_t>(result.asUint64());
+        }
     }
     else {
         return real_resources_->GetResourceFullPath(pchResourceName, pchResourceTypeDirectory, pchPathBuffer, unBufferLen);

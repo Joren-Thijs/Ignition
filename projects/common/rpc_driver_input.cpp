@@ -50,14 +50,14 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
             const std::string name_str = args[1].asString();
             const std::string skeleton_path_str = args[2].asString();
             const std::string base_pose_path_str = args[3].asString();
-            auto grip_transforms_data = args[5].asPointer();
+            auto grip_transforms_data = args[5].asByteArray();
             vr::EVRInputError err = this->CreateSkeletonComponent(
                 (vr::PropertyContainerHandle_t)args[0].asUint64(),
                 name_str.c_str(),
                 skeleton_path_str.c_str(),
                 base_pose_path_str.c_str(),
                 (vr::EVRSkeletalTrackingLevel)args[4].asInt(),
-                (const vr::VRBoneTransform_t *)grip_transforms_data.first,
+                (const vr::VRBoneTransform_t *)grip_transforms_data.data(),
                 (uint32_t)args[6].asInt(), &handle );
             std::vector<char> buffer;
             buffer.insert(buffer.end(), (char*)&err, (char*)&err + sizeof(err));
@@ -66,8 +66,8 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
         });
 
         this->RegisterFunction(RPCFunction_DriverInput_UpdateSkeletonComponent, [this](const auto& args) {
-            auto transforms_data = args[2].asPointer();
-            vr::EVRInputError err = this->UpdateSkeletonComponent( (vr::VRInputComponentHandle_t)args[0].asUint64(), (vr::EVRSkeletalMotionRange)args[1].asInt(), (const vr::VRBoneTransform_t *)transforms_data.first, (uint32_t)args[3].asInt() );
+            auto transforms_data = args[2].asByteArray();
+            vr::EVRInputError err = this->UpdateSkeletonComponent( (vr::VRInputComponentHandle_t)args[0].asUint64(), (vr::EVRSkeletalMotionRange)args[1].asInt(), (const vr::VRBoneTransform_t *)transforms_data.data(), (uint32_t)args[3].asInt() );
             return RpcValue((int)err);
         });
 
@@ -82,7 +82,7 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
         });
 
         this->RegisterFunction(RPCFunction_DriverInput_UpdatePoseComponent, [this](const auto& args) {
-            vr::EVRInputError err = this->UpdatePoseComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::HmdMatrix34_t*)args[1].asPointer().first, args[2].asDouble());
+            vr::EVRInputError err = this->UpdatePoseComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::HmdMatrix34_t*)args[1].asByteArray().data(), args[2].asDouble());
             return RpcValue((int)err);
         });
 
@@ -97,11 +97,11 @@ RpcDriverInput::RpcDriverInput(vr::IVRDriverInput* real) : RpcObject(), real_inp
         });
         
         this->RegisterFunction(RPCFunction_DriverInput_UpdateEyeTrackingComponent, [this](const auto& args) {
-            const auto& arg = args[1].asPointer();
-            if(arg.second != sizeof(vr::VREyeTrackingData_t)) {
+            auto arg = args[1].asByteArray();
+            if (arg.size() != sizeof(vr::VREyeTrackingData_t)) {
                 return RpcValue((int)vr::VRInputError_InvalidParam);
             }
-            vr::EVRInputError err = this->UpdateEyeTrackingComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::VREyeTrackingData_t*)arg.first, args[2].asDouble());
+            vr::EVRInputError err = this->UpdateEyeTrackingComponent((vr::VRInputComponentHandle_t)args[0].asUint64(), (const vr::VREyeTrackingData_t*)arg.data(), args[2].asDouble());
             return RpcValue((int)err);
         });
     }
@@ -116,8 +116,8 @@ RpcClassEnum RpcDriverInput::GetRpcClassId() const {
 vr::EVRInputError RpcDriverInput::CreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverInput_CreateBooleanComponent, RpcValue((uint64_t)ulContainer), RpcValue(std::string(pchName)));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;
@@ -142,8 +142,8 @@ vr::EVRInputError RpcDriverInput::UpdateBooleanComponent(vr::VRInputComponentHan
 vr::EVRInputError RpcDriverInput::CreateScalarComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle, vr::EVRScalarType eType, vr::EVRScalarUnits eUnits) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverInput_CreateScalarComponent, RpcValue((uint64_t)ulContainer), RpcValue(std::string(pchName)), RpcValue((int)eType), RpcValue((int)eUnits));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;
@@ -168,16 +168,16 @@ vr::EVRInputError RpcDriverInput::UpdateScalarComponent(vr::VRInputComponentHand
 vr::EVRInputError RpcDriverInput::CreateHapticComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverInput_CreateHapticComponent, RpcValue((uint64_t)ulContainer), RpcValue(std::string(pchName)));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;
         }
         *pHandle = vr::k_ulInvalidInputComponentHandle;
         return vr::VRInputError_IPCError;
-     }
-     else {
+    }
+    else {
         return real_input_->CreateHapticComponent(ulContainer, pchName, pHandle);
     }
 }
@@ -193,8 +193,8 @@ vr::EVRInputError RpcDriverInput::CreateSkeletonComponent(vr::PropertyContainerH
             RpcValue((const char*)pGripLimitTransforms, unGripLimitTransformCount * sizeof(vr::VRBoneTransform_t)),
             RpcValue((int)unGripLimitTransformCount)
         );
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;
@@ -224,16 +224,16 @@ vr::EVRInputError RpcDriverInput::UpdateSkeletonComponent(vr::VRInputComponentHa
 vr::EVRInputError RpcDriverInput::CreatePoseComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverInput_CreatePoseComponent, RpcValue((uint64_t)ulContainer), RpcValue(std::string(pchName)));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;
         }
         *pHandle = vr::k_ulInvalidInputComponentHandle;
         return vr::VRInputError_IPCError;
-     }
-     else {
+    }
+    else {
         return real_input_->CreatePoseComponent(ulContainer, pchName, pHandle);
     }
 }
@@ -250,8 +250,8 @@ vr::EVRInputError RpcDriverInput::UpdatePoseComponent(vr::VRInputComponentHandle
 vr::EVRInputError RpcDriverInput::CreateEyeTrackingComponent(vr::PropertyContainerHandle_t ulContainer, const char *pchName, vr::VRInputComponentHandle_t *pHandle) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_DriverInput_CreateEyeTrackingComponent, RpcValue((uint64_t)ulContainer), RpcValue(std::string(pchName)));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
-            const char* ptr = result.asPointer().first;
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::EVRInputError) + sizeof(vr::VRInputComponentHandle_t)) {
+            const char* ptr = result.asByteArray().data();
             vr::EVRInputError err = *reinterpret_cast<const vr::EVRInputError*>(ptr);
             *pHandle = *reinterpret_cast<const vr::VRInputComponentHandle_t*>(ptr + sizeof(vr::EVRInputError));
             return err;

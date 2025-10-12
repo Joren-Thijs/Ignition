@@ -143,8 +143,8 @@ void RpcTrackedDeviceServerDriver::DebugRequest(const char *pchRequest, char *pc
 vr::DriverPose_t RpcTrackedDeviceServerDriver::GetPose() {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_TrackedDeviceServerDriver_GetPose);
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::DriverPose_t)) {
-            return *reinterpret_cast<const vr::DriverPose_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::DriverPose_t)) {
+            return *reinterpret_cast<const vr::DriverPose_t*>(result.asByteArray().data());
         }
         return vr::DriverPose_t();
     }

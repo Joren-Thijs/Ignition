@@ -1,4 +1,6 @@
 #include "rpc_interfaces.h"
+
+#include <iostream>
 #include <vector>
 
 // --- RpcCameraComponent ---
@@ -137,8 +139,8 @@ RpcClassEnum RpcCameraComponent::GetRpcClassId() const {
 bool RpcCameraComponent::GetCameraFrameDimensions(vr::ECameraVideoStreamFormat nVideoStreamFormat, uint32_t *pWidth, uint32_t *pHeight) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraFrameDimensions, RpcValue((int)nVideoStreamFormat));
-        if (result.isPointer() && result.asPointer().second == sizeof(uint32_t) * 2) {
-            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(uint32_t) * 2) {
+            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asByteArray().data());
             *pWidth = data[0]; *pHeight = data[1];
             return true;
         }
@@ -152,8 +154,8 @@ bool RpcCameraComponent::GetCameraFrameDimensions(vr::ECameraVideoStreamFormat n
 bool RpcCameraComponent::GetCameraFrameBufferingRequirements(int *pDefaultFrameQueueSize, uint32_t *pFrameBufferDataSize) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraFrameBufferingRequirements);
-        if (result.isPointer() && result.asPointer().second == sizeof(uint32_t) * 2) {
-            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(uint32_t) * 2) {
+            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asByteArray().data());
             *pDefaultFrameQueueSize = data[0]; *pFrameBufferDataSize = data[1];
             return true;
         }
@@ -182,8 +184,8 @@ void RpcCameraComponent::StopVideoStream() {
 bool RpcCameraComponent::IsVideoStreamActive(bool *pbPaused, float *pflElapsedTime) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_IsVideoStreamActive);
-        if (result.isPointer() && result.asPointer().second == sizeof(float) * 2) {
-            const float* data = reinterpret_cast<const float*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(float) * 2) {
+            const float* data = reinterpret_cast<const float*>(result.asByteArray().data());
             *pbPaused = (bool)data[0]; *pflElapsedTime = data[1];
             return true;
         }
@@ -247,8 +249,8 @@ bool RpcCameraComponent::ResumeVideoStream() {
 bool RpcCameraComponent::GetCameraDistortion(uint32_t nCameraIndex, float flInputU, float flInputV, float *pflOutputU, float *pflOutputV) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraDistortion, RpcValue((int)nCameraIndex), RpcValue(flInputU), RpcValue(flInputV));
-        if (result.isPointer() && result.asPointer().second == sizeof(float) * 2) {
-            const float* data = reinterpret_cast<const float*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(float) * 2) {
+            const float* data = reinterpret_cast<const float*>(result.asByteArray().data());
             *pflOutputU = data[0]; *pflOutputV = data[1];
             return true;
         }
@@ -262,8 +264,8 @@ bool RpcCameraComponent::GetCameraDistortion(uint32_t nCameraIndex, float flInpu
 bool RpcCameraComponent::GetCameraProjection(uint32_t nCameraIndex, vr::EVRTrackedCameraFrameType eFrameType, float flZNear, float flZFar, vr::HmdMatrix44_t *pProjection) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraProjection, RpcValue((int)nCameraIndex), RpcValue((int)eFrameType), RpcValue(flZNear), RpcValue(flZFar));
-        if (result.isPointer() && result.asPointer().second == sizeof(vr::HmdMatrix44_t)) {
-            *pProjection = *reinterpret_cast<const vr::HmdMatrix44_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(vr::HmdMatrix44_t)) {
+            *pProjection = *reinterpret_cast<const vr::HmdMatrix44_t*>(result.asByteArray().data());
             return true;
         }
         return false;
@@ -307,8 +309,8 @@ bool RpcCameraComponent::SetCameraCompatibilityMode(vr::ECameraCompatibilityMode
 bool RpcCameraComponent::GetCameraFrameBounds(vr::EVRTrackedCameraFrameType eFrameType, uint32_t *pLeft, uint32_t *pTop, uint32_t *pWidth, uint32_t *pHeight) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraFrameBounds, RpcValue((int)eFrameType));
-        if (result.isPointer() && result.asPointer().second == sizeof(uint32_t) * 4) {
-            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asPointer().first);
+        if (result.isByteArray() && result.asByteArray().size() == sizeof(uint32_t) * 4) {
+            const uint32_t* data = reinterpret_cast<const uint32_t*>(result.asByteArray().data());
             *pLeft = data[0]; *pTop = data[1]; *pWidth = data[2]; *pHeight = data[3];
             return true;
         }
@@ -322,11 +324,11 @@ bool RpcCameraComponent::GetCameraFrameBounds(vr::EVRTrackedCameraFrameType eFra
 bool RpcCameraComponent::GetCameraIntrinsics(uint32_t nCameraIndex, vr::EVRTrackedCameraFrameType eFrameType, vr::HmdVector2_t *pFocalLength, vr::HmdVector2_t *pCenter, vr::EVRDistortionFunctionType *peDistortionType, double rCoefficients[vr::k_unMaxDistortionFunctionParameters]) {
     if (IsProxy()) {
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_CameraComponent_GetCameraIntrinsics, RpcValue((int)nCameraIndex), RpcValue((int)eFrameType));
-        if (result.isPointer()) {
-            auto data = result.asPointer();
-            const char* ptr = data.first;
+        if (result.isByteArray()) {
+            auto data = result.asByteArray();
+            const char* ptr = data.data();
             size_t expected_size = sizeof(vr::HmdVector2_t) * 2 + sizeof(vr::EVRDistortionFunctionType) + sizeof(double) * vr::k_unMaxDistortionFunctionParameters;
-            if (data.second == expected_size) {
+            if (data.size() == expected_size) {
                 memcpy(pFocalLength, ptr, sizeof(vr::HmdVector2_t));
                 ptr += sizeof(vr::HmdVector2_t);
                 memcpy(pCenter, ptr, sizeof(vr::HmdVector2_t));

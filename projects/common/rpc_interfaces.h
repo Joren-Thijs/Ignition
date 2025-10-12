@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rpc_core.h"
-#include <cstring>
 #include <openvr.hpp>
 
 // ************************************

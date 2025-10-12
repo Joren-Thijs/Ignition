@@ -8,8 +8,6 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <iostream>
-#include <sstream>
 #include <atomic>
 #include <queue>
 #include <utility>
@@ -19,11 +17,12 @@
 
 // Forward declarations
 struct CircularBuffer;
-class RpcSystem; // Now a static class
+class RpcSystem;
 class RpcObject;
+class RpcValue;
 
-// Unique identifier for an RPC-enabled object instance
 using RpcObjectId = uint64_t;
+using RpcFunction = std::function<RpcValue(const std::vector<RpcValue>&)>;
 
 constexpr size_t SHM_BUFFER_SIZE = 1024 * 1024; // 1MB
 
@@ -35,10 +34,14 @@ public:
     explicit RpcValue(int v) : type_(T_INT), int_val_(v) {}
     explicit RpcValue(float v) : type_(T_FLOAT), float_val_(v) {}
     explicit RpcValue(double v) : type_(T_DOUBLE), double_val_(v) {}
-    explicit RpcValue(const std::string& v) : type_(T_STRING), str_val_(v) {}
     explicit RpcValue(uint64_t v) : type_(T_UINT64), uint64_val_(v) {}
-    RpcValue(const char* data, size_t len) : type_(T_POINTER), ptr_val_(data, data + len) {}
+    explicit RpcValue(std::vector<char> v) : type_(T_BYTE_ARRAY), byte_array_val_(std::move(v)) {}
+    RpcValue(const char* data, size_t len) : type_(T_BYTE_ARRAY), byte_array_val_(data, data + len) {}
     RpcValue(RpcObject* v);
+
+    explicit RpcValue(const std::string& v) : type_(T_BYTE_ARRAY) {
+        byte_array_val_.assign(v.begin(), v.end());
+    }
 
     // Copy constructor and assignment
     RpcValue(const RpcValue& other);
@@ -49,30 +52,31 @@ public:
     // Type checking
     bool isInt() const { return type_ == T_INT; }
     bool isFloat() const { return type_ == T_FLOAT; }
-    bool isDouble() const { return type_ == T_DOUBLE; }
-    bool isString() const { return type_ == T_STRING; }
-    bool isPointer() const { return type_ == T_POINTER; }
+    bool isDouble() const { return type_ == T_DOUBLE; }    
     bool isUint64() const { return type_ == T_UINT64; }
+    bool isByteArray() const { return type_ == T_BYTE_ARRAY; }
     bool isObject() const { return type_ == T_OBJECT_REF; }
 
     // Value accessors
     int asInt() const;
     float asFloat() const;
     double asDouble() const;
-    std::string asString() const;
     uint64_t asUint64() const;
-    std::pair<const char*, size_t> asPointer() const;
-    RpcObject* asObject() const; // RpcSystem is now static
+    const std::vector<char>& asByteArray() const;
+    RpcObject* asObject() const;
+
+    // Helper to access byte array as std::string
+    std::string asString() const;
 
 private:
-    friend class Serializer;
-    enum Type { T_NULL, T_INT, T_FLOAT, T_DOUBLE, T_STRING, T_POINTER, T_OBJECT_REF, T_UINT64 };
+    friend class RpcSerializer;
+    enum Type { T_NULL, T_INT, T_FLOAT, T_DOUBLE, T_BYTE_ARRAY, T_OBJECT_REF, T_UINT64 };
     Type type_;
 
     // Holds info to look up a remote object
     struct ObjectRef {
         RpcObjectId id;
-        RpcClassEnum class_id; // Used to create proxies
+        RpcClassEnum class_id;
     };
 
     union {
@@ -82,16 +86,14 @@ private:
         uint64_t uint64_val_;
         ObjectRef obj_ref_;
     };
+
     // Value-based storage for variable-length data
-    std::string str_val_{};
-    std::vector<char> ptr_val_{};
+    std::vector<char> byte_array_val_{};
 };
 
 // --- RPC System (Static Class) ---
 class RpcSystem {
 public:
-    using RpcFunction = std::function<RpcValue(const std::vector<RpcValue>&)>;
-
     // Get the singleton instance
     static RpcSystem& GetInstance();
 
@@ -114,7 +116,8 @@ public:
     static RpcValue Call(RpcFunctionEnum funcId, Args... args) { return GetInstance()._Call(funcId, args...); }
 
     // Call a remote method on an object.
-    template<typename... Args> static RpcValue CallMethod(RpcObjectId objId, RpcFunctionEnum funcId, Args... args) { return GetInstance()._CallMethod(objId, funcId, args...); }
+    template<typename... Args>
+    static RpcValue CallMethod(RpcObjectId objId, RpcFunctionEnum funcId, Args... args) { return GetInstance()._CallMethod(objId, funcId, args...); }
 
     static void StartServer() { GetInstance()._StartServer(); }
     static bool ConnectToServer() { return GetInstance()._ConnectToServer(); }
@@ -122,20 +125,11 @@ public:
     static void Shutdown() { GetInstance()._Shutdown(); }
     static void ShutdownThreadPool() { GetInstance()._ShutdownThreadPool(); }
     static bool IsConnected() { return GetInstance()._IsConnected(); }
-
-    // --- Object Management (public for RpcObject and RpcValue) ---
-    RpcObjectId _GenerateObjectId();
-    void _RegisterLocalObject(RpcObject* obj);
-    void _UnregisterLocalObject(RpcObjectId id);
-    void _RegisterFunction(RpcFunctionEnum funcId, RpcFunction func);
-    void _UnregisterFunction(RpcFunctionEnum funcId);
-    RpcFunction _FindFunction(RpcFunctionEnum funcId);
-    RpcObject* _GetLocalObject(RpcObjectId id);
-    RpcObject* _FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId);
-
+    
 private:
     friend class RpcObject;
-    friend class Serializer;
+    friend class RpcValue;
+    friend class RpcSerializer;
     // Singleton: private constructor, destructor, no copy/move
     RpcSystem();
     ~RpcSystem();
@@ -163,12 +157,14 @@ private:
     void _ShutdownThreadPool();
     bool _IsConnected();
 
-    // RPCObject helpers
-    static RpcObjectId GenerateObjectId();
-    static void RegisterLocalObject(RpcObject* obj);
-    static void UnregisterLocalObject(RpcObjectId id);
-    static RpcObject* GetLocalObject(RpcObjectId id);
-    static RpcObject* FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId);
+    RpcObjectId _GenerateObjectId();
+    void _RegisterLocalObject(RpcObject* obj);
+    void _UnregisterLocalObject(RpcObjectId id);
+    void _RegisterFunction(RpcFunctionEnum funcId, RpcFunction func);
+    void _UnregisterFunction(RpcFunctionEnum funcId);
+    RpcFunction _FindFunction(RpcFunctionEnum funcId);
+    RpcObject* _GetLocalObject(RpcObjectId id);
+    RpcObject* _FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId);
 
     void ListenLoop();
     void ProcessMessage(const std::vector<char>& buffer);
@@ -190,7 +186,7 @@ private:
     std::atomic<RpcObjectId> next_object_id_{1};
     std::map<RpcObjectId, RpcObject*> local_objects_; // Real objects this process owns
     std::map<RpcObjectId, std::unique_ptr<RpcObject>> remote_proxies_; // Proxies to remote objects    
-    std::map<RpcFunctionEnum, std::function<RpcValue(const std::vector<RpcValue>&)>> static_function_registry_;
+    std::map<RpcFunctionEnum, RpcFunction> static_function_registry_;
     std::map<RpcClassEnum, ObjectFactory> object_factories_;
     std::mutex object_mutex_;
 
@@ -199,27 +195,22 @@ private:
     std::mutex pending_calls_mutex_;
     std::atomic<uint32_t> next_call_id_{1};
 
-    // --- Synchronous Sender ---
-    std::mutex send_mutex_;
     // --- Thread Pool for handling calls ---
     std::vector<std::thread> worker_threads_;
     std::queue<std::function<void()>> tasks_;
     std::mutex thread_pool_mutex_;
     std::condition_variable thread_pool_cv_;
     bool stop_thread_pool_ = false;
-    std::mutex cout_mutex_;
 };
 
 // --- RPC Object Base Class ---
 // Inherit from this class to make it usable over RPC.
 class RpcObject {
 public:
-    using RpcFunction = RpcSystem::RpcFunction;
-
     // Constructor for a new local object. It will be registered with the system. It's inline because it's in a header.
     inline RpcObject() : is_proxy_(false) {
-        object_id_ = RpcSystem::GenerateObjectId();
-        RpcSystem::RegisterLocalObject(this);
+        object_id_ = RpcSystem::GetInstance()._GenerateObjectId();
+        RpcSystem::GetInstance()._RegisterLocalObject(this);
     }
 
     // Constructor for a proxy to a remote object. Use this in derived classes.
@@ -229,7 +220,7 @@ public:
         if (!is_proxy_) {
             // If this is a real object, unregister it from the system
             // upon destruction.
-            RpcSystem::UnregisterLocalObject(object_id_);
+            RpcSystem::GetInstance()._UnregisterLocalObject(object_id_);
         }
     }
 
@@ -253,12 +244,11 @@ protected:
 };
 
 // Simple serializer
-class Serializer {
+class RpcSerializer {
 public:
-    static void serialize(std::vector<char>& buffer, const RpcValue& val);
-    static RpcValue deserialize(const char*& buffer_ptr, const char* buffer_end);
+    static void Serialize(std::vector<char>& buffer, const RpcValue& val);
+    static RpcValue Deserialize(const char*& bufferPtr, const char* bufferEnd);
 };
-
 
 // --- Template & Inline Implementations ---
 
@@ -292,10 +282,3 @@ void RpcSystem::EnqueueTask(F&& f, Args&&... args) {
     }
     thread_pool_cv_.notify_one();
 }
-
-// --- Global Object Management helpers ---
-inline RpcObjectId RpcSystem::GenerateObjectId() { return RpcSystem::GetInstance()._GenerateObjectId(); }
-inline void RpcSystem::RegisterLocalObject(RpcObject* obj) { RpcSystem::GetInstance()._RegisterLocalObject(obj); }
-inline void RpcSystem::UnregisterLocalObject(RpcObjectId id) {RpcSystem:: GetInstance()._UnregisterLocalObject(id); }
-inline RpcObject* RpcSystem::GetLocalObject(RpcObjectId id) { return RpcSystem::GetInstance()._GetLocalObject(id); }
-inline RpcObject* RpcSystem::FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId) { return RpcSystem::GetInstance()._FindOrCreateProxy(id, classId); }

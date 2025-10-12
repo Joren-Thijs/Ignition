@@ -175,8 +175,8 @@ void RpcSettings::SetString(const char *pchSection, const char *pchSettingsKey, 
 bool RpcSettings::GetBool(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
         RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetBool, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
-        if (result_val.isPointer() && result_val.asPointer().second == sizeof(bool) + sizeof(vr::EVRSettingsError)) {
-            const char* ptr = result_val.asPointer().first;
+        if (result_val.isByteArray() && result_val.asByteArray().size() == sizeof(bool) + sizeof(vr::EVRSettingsError)) {
+            const char* ptr = result_val.asByteArray().data();
             bool result = *reinterpret_cast<const bool*>(ptr);
             if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(ptr + sizeof(bool));
             return result;
@@ -192,8 +192,8 @@ bool RpcSettings::GetBool(const char *pchSection, const char *pchSettingsKey, vr
 int32_t RpcSettings::GetInt32(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
         RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetInt32, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
-        if (result_val.isPointer() && result_val.asPointer().second == sizeof(int32_t) + sizeof(vr::EVRSettingsError)) {
-            const char* ptr = result_val.asPointer().first;
+        if (result_val.isByteArray() && result_val.asByteArray().size() == sizeof(int32_t) + sizeof(vr::EVRSettingsError)) {
+            const char* ptr = result_val.asByteArray().data();
             int32_t result = *reinterpret_cast<const int32_t*>(ptr);
             if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(ptr + sizeof(int32_t));
             return result;
@@ -209,8 +209,8 @@ int32_t RpcSettings::GetInt32(const char *pchSection, const char *pchSettingsKey
 float RpcSettings::GetFloat(const char *pchSection, const char *pchSettingsKey, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
         RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetFloat, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
-        if (result_val.isPointer() && result_val.asPointer().second == sizeof(float) + sizeof(vr::EVRSettingsError)) {
-            const char* ptr = result_val.asPointer().first;
+        if (result_val.isByteArray() && result_val.asByteArray().size() == sizeof(float) + sizeof(vr::EVRSettingsError)) {
+            const char* ptr = result_val.asByteArray().data();
             float result = *reinterpret_cast<const float*>(ptr);
             if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(ptr + sizeof(float));
             return result;
@@ -226,11 +226,11 @@ float RpcSettings::GetFloat(const char *pchSection, const char *pchSettingsKey, 
 void RpcSettings::GetString(const char *pchSection, const char *pchSettingsKey, VR_OUT_STRING() char *pchValue, uint32_t unValueLen, vr::EVRSettingsError *peError) {
     if (IsProxy()) {
         RpcValue result_val = RpcSystem::CallMethod(GetId(), RPCFunction_Settings_GetString, RpcValue(std::string(pchSection)), RpcValue(std::string(pchSettingsKey)));
-        if (result_val.isPointer()) {
-            auto data = result_val.asPointer();
-            if (data.second >= sizeof(vr::EVRSettingsError)) {
-                if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(data.first);
-                std::string result_str(data.first + sizeof(vr::EVRSettingsError), data.second - sizeof(vr::EVRSettingsError));
+        if (result_val.isByteArray()) {
+            auto data = result_val.asByteArray();
+            if (data.size() >= sizeof(vr::EVRSettingsError)) {
+                if (peError) *peError = *reinterpret_cast<const vr::EVRSettingsError*>(data.data());
+                std::string result_str(data.data() + sizeof(vr::EVRSettingsError), data.size() - sizeof(vr::EVRSettingsError));
                 if (pchValue && unValueLen > 0) {
                     memcpy(pchValue, result_str.c_str(), std::min((size_t)unValueLen - 1, result_str.size()));
                     pchValue[std::min((size_t)unValueLen - 1, result_str.size())] = '\0';

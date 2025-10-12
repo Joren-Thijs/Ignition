@@ -103,7 +103,7 @@ const char *const *RpcServerTrackedDeviceProvider::GetInterfaceVersions() {
         }
 
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_ServerTrackedDeviceProvider_GetInterfaceVersions);
-        if (result.isString()) {
+        if (result.isByteArray()) {
             const std::string& concatenated = result.asString();
             size_t start = 0;
             while (start < concatenated.length()) {
