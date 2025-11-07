@@ -60,12 +60,12 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
                 // Linux only hack: Fix the chaperone path.
                 if (batch[i].prop == vr::ETrackedDeviceProperty::Prop_DriverProvidedChaperonePath_String)
                 {
-                    // Log path, and also replace \ with /
+                    // Replace \ with / in path
                     std::string path_str((char*)batch[i].pvBuffer, batch[i].unBufferSize);
                     std::replace(path_str.begin(), path_str.end(), '\\', '/');
-                    std::cout << "Chaperone path: " << path_str << std::endl;
+                    
                     // Update the buffer with the modified path
-                    memcpy(batch[i].pvBuffer, path_str.c_str(), path_str.length() + 1);
+                    memcpy(batch[i].pvBuffer, path_str.c_str(), batch[i].unBufferSize);
                 }
 #endif
             }
