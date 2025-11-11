@@ -1,12 +1,5 @@
 #include "rpc_interfaces.h"
-#include <iostream>
 #include <vector>
-
-#if _WIN32
-#include <windows.h>
-#endif
-
-bool hasStubbed = false;
 
 // --- RpcServerTrackedDeviceProvider ---
 
@@ -134,36 +127,6 @@ void RpcServerTrackedDeviceProvider::RunFrame() {
     }
     else {
         real_provider_->RunFrame();
-
-        if (!hasStubbed) {
-#if _WIN32
-            // Stub out code at 0x11d0c0 with a ret in driver_playstation_vr2_orig.dll to avoid crash.
-            HMODULE hModuleo = GetModuleHandleW(L"driver_playstation_vr2_orig.dll");
-
-            void* function = reinterpret_cast<char*>(hModuleo) + 0x11d0c0;
-            DWORD oldProtect;
-            if (!VirtualProtect(function, 1, PAGE_EXECUTE_READWRITE, &oldProtect
-            )) {
-                std::cout << "VirtualProtect failed: " << GetLastError() << std::endl;
-            }
-            unsigned char retInstruction = 0xC3; // x86 RET instruction
-            SIZE_T bytesWritten;
-            if (!WriteProcessMemory(GetCurrentProcess(), function, &retInstruction, 1, 
-                &bytesWritten) || bytesWritten != 1) {
-                std::cout << "WriteProcessMemory failed: " << GetLastError() << std::endl;
-            }
-            if (!VirtualProtect(function, 1, oldProtect, &oldProtect)) {
-                std::cout << "VirtualProtect restore failed: " << GetLastError() << std::endl;
-            }
-
-            // Flush instruction cache to ensure modified code is used.
-            if (!FlushInstructionCache(GetCurrentProcess(), function, 1)) {
-                std::cout << "FlushInstructionCache failed: " << GetLastError() << std::endl;
-            }
-
-            hasStubbed = true;
-#endif
-        }
     }
 }
 
