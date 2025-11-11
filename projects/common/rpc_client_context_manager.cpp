@@ -86,7 +86,7 @@ void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion,
 
         if (peError) *peError = err;
 
-        if (!real_interface || err != vr::VRInitError_None) {
+        if (!real_interface && err != vr::VRInitError_None) {
             return nullptr;
         }
 

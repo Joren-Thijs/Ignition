@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(${CMAKE_SOURCE_DIR}/externals/openvr)
+include_directories(${CMAKE_SOURCE_DIR}/externals/nlohmann)
 include_directories(${CMAKE_SOURCE_DIR}/projects/common)
 
 add_executable(ignition_server

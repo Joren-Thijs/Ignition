@@ -5,7 +5,14 @@
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
 
 // --- RpcValue Implementation ---
 RpcValue::RpcValue(RpcObject* v) : type_(T_OBJECT_REF) {
@@ -212,21 +219,36 @@ void RpcSystem::_Initialize(const std::string& pipeName) {
 }
 
 void RpcSystem::_Shutdown() {
-    if (!running_) {
+    bool expected = true;
+    if (!running_.compare_exchange_strong(expected, false)) {
         return;
     }
-    running_ = false;
-
-    _ShutdownThreadPool();
-
-    // The listen thread might be waiting on the circular buffer.
-    // A robust shutdown would signal the event or close the handle to wake it up.
+    
+    // Listen thread calls mapped_event_circular_buffer_wait_for_data, which is set to timeout after 1 second.
+    // It will exit the loop since running_ is now false.
     if (listen_thread_ && listen_thread_->joinable()) {
         listen_thread_->join();
     }
 
+    // Complete all pending calls
+    {
+        std::lock_guard<std::mutex> lock(pending_calls_mutex_);
+        for (auto const& [callId, pendingCall] : pending_calls_) {
+            std::lock_guard<std::mutex> call_lock(pendingCall->mtx);
+            pendingCall->completed = true; // Mark as completed to unblock waiters
+            pendingCall->cv.notify_one();
+        }
+        pending_calls_.clear();
+    }
+
+    _ShutdownThreadPool();
+
+    // Clean up shared memory resources
     mapped_event_circular_buffer_close_shm(pC2S_Buffer_);
     mapped_event_circular_buffer_close_shm(pS2C_Buffer_);
+
+    mapped_event_circular_buffer_destroy(pC2S_Buffer_);
+    mapped_event_circular_buffer_destroy(pS2C_Buffer_);
     pC2S_Buffer_ = nullptr;
     pS2C_Buffer_ = nullptr;
 
@@ -262,6 +284,13 @@ void RpcSystem::_ShutdownThreadPool() {
     }
 
     thread_pool_cv_.notify_all();
+
+    for (std::thread& worker : worker_threads_) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
+    worker_threads_.clear();
 }
 
 bool RpcSystem::_IsConnected() {
@@ -309,7 +338,7 @@ void RpcSystem::ListenLoop() {
     static char message[SHM_BUFFER_SIZE];
     
     while (running_) {
-        mapped_event_circular_buffer_wait_for_data(pReadBuffer);
+        mapped_event_circular_buffer_wait_for_data(pReadBuffer, 1000);
 
         if (!running_) {
             break;
@@ -506,6 +535,15 @@ RpcObject* RpcSystem::_FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId) {
 RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, const std::vector<RpcValue>& args) {
     if (!_IsConnected()) {
         throw std::runtime_error("RPC system is not connected.");
+    }
+
+    // Stop future calls by exiting this thread. We will not have any safe values to return at this point.
+    if (!running_) {
+#ifdef _WIN32
+        ExitThread(0);
+#else
+        pthread_exit(nullptr);
+#endif
     }
 
     uint32_t callId;

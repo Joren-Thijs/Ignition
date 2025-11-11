@@ -281,13 +281,25 @@ bool CircularBuffer::read(char* data, size_t& size) {
 	return hasRead;
 }
 
-void CircularBuffer::wait_for_data() {
+void CircularBuffer::wait_for_data(uint32_t timeout_ms) {
 #ifndef __WINE__
-	if (hDataAvailableEvent_)
-		WaitForSingleObject(hDataAvailableEvent_, INFINITE);
+	if (hDataAvailableEvent_) {
+		DWORD ret = WaitForSingleObject(hDataAvailableEvent_, timeout_ms);
+		if (ret != WAIT_TIMEOUT && ret != WAIT_OBJECT_0) {
+			throw std::runtime_error("Error waiting for event: " + std::to_string(GetLastError()));
+		}
+	}
 #else
-	if (sem_)
-		sem_wait(sem_);
+	if (sem_) {
+		struct timespec timeout;
+		clock_gettime(CLOCK_REALTIME, &timeout);
+		timeout.tv_sec += timeout_ms / 1000;
+		
+		int ret = sem_timedwait(sem_, &timeout);
+		if (ret == -1 && errno != ETIMEDOUT) {
+			throw std::runtime_error("Error waiting for semaphore: " + std::string(strerror(errno)));
+		}
+	}
 #endif
 }
 

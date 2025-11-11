@@ -177,7 +177,7 @@ private:
     std::string pipe_name_;
     bool is_server_ = false;
     std::unique_ptr<std::thread> listen_thread_;
-    bool running_ = false;
+    std::atomic<bool> running_ = false;
 
     CircularBuffer* pC2S_Buffer_ = nullptr;
     CircularBuffer* pS2C_Buffer_ = nullptr;

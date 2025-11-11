@@ -1,10 +1,13 @@
 #include "rpc_core.h"
 #include "rpc_interfaces.h"
 
+#include <fstream>
 #include <combaseapi.h>
 #include <iostream>
 #include <openvr.hpp>
 #include <string>
+#include <json.hpp>
+#include <shlwapi.h>
 #include <windows.h>
 
 void *(*pfnHmdDriverFactory)(const char *pInterfaceName, int *pReturnCode) = nullptr;
@@ -30,24 +33,50 @@ void RegisterRPCClasses() {
 int main(int argc, char *argv[]) {
     std::cout << "Ignition server starting..." << std::endl;
 
+    Sleep(1000);
+
+    if (argc < 2) {
+        std::cout << "Usage: ignition_server <driver process PID>" << std::endl;
+        return 1;
+    }
+
+    std::string pid_str = argv[1];
+    DWORD driver_pid = std::stoul(pid_str);
+
     if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
         printf("Failed to initialize COM.\n");
         return -1;
     }
 
-    RpcSystem::Initialize("ignition_pipe");
+    std::string pipe_name = "ignition_pipe_" + pid_str;
+    RpcSystem::Initialize(pipe_name);
     RegisterRPCClasses();
 
-    HMODULE hModule;
-#ifdef HARDCODED_DRIVER_PATH
-    hModule = LoadLibraryW(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\PlayStation VR2 App\\SteamVR_Plug-In\\bin\\win64\\driver_playstation_vr2tk.dll");
-#else
-    if (argc < 2) {
-        std::cout << "Usage: ignition_server <path to driver DLL>" << std::endl;
-        return 1;
+    // Read config to find the driver DLL
+    std::string config_path = "./ignition.json";
+    std::ifstream config_file(config_path);
+    if (!config_file.is_open()) {
+        std::cout << "Could not open ignition.json" << std::endl;
+        return -1;
     }
-    hModule = LoadLibraryA(argv[1]);
-#endif
+
+    nlohmann::json config;
+    try {
+        config_file >> config;
+    } catch (const std::exception& e) {
+        std::cout << "Failed to parse ignition.json: " << e.what() << std::endl;
+        return -1;
+    }
+
+    std::string driver_path;
+    if (config.contains("driver_path")) {
+        driver_path = config["driver_path"];
+    } else {
+        std::cout << "ignition.json is missing 'driver_path'" << std::endl;
+        return -1;
+    }
+
+    HMODULE hModule = LoadLibraryA(driver_path.c_str());
 
     if (!hModule) {
         std::cout << "Failed to load driver DLL. Error: " << GetLastError() << std::endl;
@@ -71,7 +100,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    RpcSystem::StartServer();
+    RpcSystem::ConnectToServer();
 
     // Create the RPC wrapper for the real provider.
     g_pRpcProvider = new RpcServerTrackedDeviceProvider(pRealDeviceProvider);
@@ -85,16 +114,21 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Ignition server running. Waiting for client to connect..." << std::endl;
 
-    while (RpcSystem::IsConnected()) {
-        // The listen thread handles everything. We can do other work here if
-        // needed.
-        Sleep(1000);
+    HANDLE hDriverProcess = OpenProcess(SYNCHRONIZE, FALSE, driver_pid);
+
+    if (hDriverProcess != NULL) {
+        std::cout << "Monitoring driver process " << driver_pid << " for termination." << std::endl;
+        WaitForSingleObject(hDriverProcess, INFINITE);
+        std::cout << "Driver process terminated." << std::endl;
+        CloseHandle(hDriverProcess);
+    }
+    else {
+        std::cout << "Could not open driver process. Quitting." << std::endl;
     }
 
     std::cout << "Client disconnected, shutting down." << std::endl;
 
     delete g_pRpcProvider;
-    RpcSystem::Shutdown();
 
     CoUninitialize();
 

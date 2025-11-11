@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -26,7 +27,7 @@ mapped_event_circular_buffer_API void __cdecl mapped_event_circular_buffer_destr
 mapped_event_circular_buffer_API bool __cdecl mapped_event_circular_buffer_write(CircularBuffer* cb, const char* data, size_t size);
 mapped_event_circular_buffer_API bool __cdecl mapped_event_circular_buffer_read(CircularBuffer* cb, char* data, size_t* size);
 
-mapped_event_circular_buffer_API void __cdecl mapped_event_circular_buffer_wait_for_data(CircularBuffer* cb);
+mapped_event_circular_buffer_API void __cdecl mapped_event_circular_buffer_wait_for_data(CircularBuffer* cb, uint32_t timeout_ms);
 
 #ifdef __cplusplus
 }
