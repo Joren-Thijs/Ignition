@@ -215,6 +215,9 @@ void RpcSystem::_Initialize(const std::string& ipcName) {
     next_call_id_ = 1;
     running_ = true;
 
+    // Replace '.' with '_'
+    std::replace(pipe_name_.begin(), pipe_name_.end(), '.', '_');
+
     _InitializeThreadPool(5);
 }
 
