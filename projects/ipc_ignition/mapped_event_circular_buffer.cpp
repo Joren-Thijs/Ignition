@@ -296,7 +296,7 @@ void CircularBuffer::wait_for_data(uint32_t timeout_ms) {
 		timeout.tv_sec += timeout_ms / 1000;
 		
 		int ret = sem_timedwait(sem_, &timeout);
-		if (ret == -1 && errno != ETIMEDOUT) {
+		if (ret == -1 && errno != ETIMEDOUT && errno != EINTR) {
 			throw std::runtime_error("Error waiting for semaphore: " + std::string(strerror(errno)));
 		}
 	}

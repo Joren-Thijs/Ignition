@@ -209,8 +209,8 @@ RpcSystem::~RpcSystem() {
     _Shutdown();
 }
 
-void RpcSystem::_Initialize(const std::string& pipeName) {
-    pipe_name_ = pipeName;
+void RpcSystem::_Initialize(const std::string& ipcName) {
+    pipe_name_ = ipcName;
     next_object_id_ = 1;
     next_call_id_ = 1;
     running_ = true;
@@ -297,7 +297,7 @@ bool RpcSystem::_IsConnected() {
     return pC2S_Buffer_ != nullptr && pS2C_Buffer_ != nullptr;
 }
 
-void RpcSystem::_StartServer() {
+void RpcSystem::_CreateIPC() {
     is_server_ = true;
     std::string c2s_name = pipe_name_ + "_c2s";
     std::string s2c_name = pipe_name_ + "_s2c";
@@ -314,7 +314,7 @@ void RpcSystem::_StartServer() {
     listen_thread_ = std::make_unique<std::thread>(&RpcSystem::ListenLoop, this);
 }
 
-bool RpcSystem::_ConnectToServer() {
+bool RpcSystem::_ConnectToExistingIPC() {
     is_server_ = false;
     std::string c2s_name = pipe_name_ + "_c2s";
     std::string s2c_name = pipe_name_ + "_s2c";

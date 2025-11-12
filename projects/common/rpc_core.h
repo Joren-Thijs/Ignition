@@ -98,7 +98,7 @@ public:
     static RpcSystem& GetInstance();
 
     // Must be called once at the start of the application
-    static void Initialize(const std::string& pipeName) { GetInstance()._Initialize(pipeName); }
+    static void Initialize(const std::string& ipcName) { GetInstance()._Initialize(ipcName); }
     static void InitializeThreadPool(size_t num_threads) { GetInstance()._InitializeThreadPool(num_threads); }
 
     // Register a class type and its proxy factory.
@@ -119,8 +119,8 @@ public:
     template<typename... Args>
     static RpcValue CallMethod(RpcObjectId objId, RpcFunctionEnum funcId, Args... args) { return GetInstance()._CallMethod(objId, funcId, args...); }
 
-    static void StartServer() { GetInstance()._StartServer(); }
-    static bool ConnectToServer() { return GetInstance()._ConnectToServer(); }
+    static void CreateIPC() { GetInstance()._CreateIPC(); }
+    static bool ConnectToExistingIPC() { return GetInstance()._ConnectToExistingIPC(); }
 
     static void Shutdown() { GetInstance()._Shutdown(); }
     static void ShutdownThreadPool() { GetInstance()._ShutdownThreadPool(); }
@@ -145,14 +145,14 @@ private:
 
     using ObjectFactory = std::function<std::unique_ptr<RpcObject>(RpcObjectId)>;
 
-    void _Initialize(const std::string& pipeName);
+    void _Initialize(const std::string& ipcName);
     void _InitializeThreadPool(size_t num_threads);
     template<typename T> void _RegisterRPCClass();
     template<typename... Args> RpcValue _Call(const std::string& funcName, Args... args);
     template<typename... Args> RpcValue _Call(RpcFunctionEnum funcId, Args... args);
     template<typename... Args> RpcValue _CallMethod(RpcObjectId objId, RpcFunctionEnum funcId, Args... args);
-    void _StartServer();
-    bool _ConnectToServer();
+    void _CreateIPC();
+    bool _ConnectToExistingIPC();
     void _Shutdown();
     void _ShutdownThreadPool();
     bool _IsConnected();

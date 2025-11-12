@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    RpcSystem::ConnectToServer();
+    RpcSystem::ConnectToExistingIPC();
 
     // Create the RPC wrapper for the real provider.
     g_pRpcProvider = new RpcServerTrackedDeviceProvider(pRealDeviceProvider);
