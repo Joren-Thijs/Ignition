@@ -1,7 +1,7 @@
 #include "rpc_core.h"
 #include "rpc_interfaces.h"
+#include "config.h"
 
-#include <fstream>
 #include <combaseapi.h>
 #include <iostream>
 #include <openvr.hpp>
@@ -33,8 +33,6 @@ void RegisterRPCClasses() {
 int main(int argc, char *argv[]) {
     std::cout << "Ignition server starting..." << std::endl;
 
-    Sleep(1000);
-
     if (argc < 2) {
         std::cout << "Usage: ignition_server <driver process PID>" << std::endl;
         return 1;
@@ -48,35 +46,19 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    std::string pipe_name = "ignition_pipe_" + pid_str;
+    // Read config to find the driver DLL
+    std::string config_path = "./ignition.json";
+    IgnitionConfig config;
+    if (!ParseConfig(config_path, config)) {
+        // Error already printed in ParseConfig
+        return -1;
+    }
+
+    std::string pipe_name = "ignition_ipc_" + pid_str + "_" + config.driver_dll;
     RpcSystem::Initialize(pipe_name);
     RegisterRPCClasses();
 
-    // Read config to find the driver DLL
-    std::string config_path = "./ignition.json";
-    std::ifstream config_file(config_path);
-    if (!config_file.is_open()) {
-        std::cout << "Could not open ignition.json" << std::endl;
-        return -1;
-    }
-
-    nlohmann::json config;
-    try {
-        config_file >> config;
-    } catch (const std::exception& e) {
-        std::cout << "Failed to parse ignition.json: " << e.what() << std::endl;
-        return -1;
-    }
-
-    std::string driver_path;
-    if (config.contains("driver_path")) {
-        driver_path = config["driver_path"];
-    } else {
-        std::cout << "ignition.json is missing 'driver_path'" << std::endl;
-        return -1;
-    }
-
-    HMODULE hModule = LoadLibraryA(driver_path.c_str());
+    HMODULE hModule = LoadLibraryA(config.driver_dll.c_str());
 
     if (!hModule) {
         std::cout << "Failed to load driver DLL. Error: " << GetLastError() << std::endl;
@@ -123,7 +105,10 @@ int main(int argc, char *argv[]) {
         CloseHandle(hDriverProcess);
     }
     else {
-        std::cout << "Could not open driver process. Quitting." << std::endl;
+        std::cout << "Could not open driver process. We'll assume the driver will try to quit this process." << std::endl;
+
+        while (true)
+            Sleep(1000);
     }
 
     std::cout << "Client disconnected, shutting down." << std::endl;

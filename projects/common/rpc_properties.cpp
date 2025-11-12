@@ -56,7 +56,7 @@ RpcProperties::RpcProperties(vr::IVRProperties* real) : RpcObject(), real_proper
                     batch[i].pvBuffer = nullptr;
                 }
 
-#ifdef __WINE__
+#ifdef __linux__
                 // Linux only hack: Fix the chaperone path.
                 if (batch[i].prop == vr::ETrackedDeviceProperty::Prop_DriverProvidedChaperonePath_String)
                 {

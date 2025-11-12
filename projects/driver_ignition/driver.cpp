@@ -1,13 +1,11 @@
 #include "driver.hpp"
 #include "rpc_interfaces.h"
-
-#include <fstream>
-#include <iostream>
+#include "config.h"
 #include <string>
 
 #include <json.hpp>
 
-#ifndef __WINE__
+#ifndef __linux__
 #include <windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -17,6 +15,8 @@
 #include <unistd.h>
 #include <linux/limits.h>
 #include <vector>
+#include <sys/prctl.h>
+#include <signal.h>
 #endif
 
 static RpcServerTrackedDeviceProvider* g_pProviderProxy = nullptr;
@@ -38,7 +38,7 @@ void RegisterRPCClasses() {
 
 std::string GetProcessId()
 {
-#ifndef __WINE__
+#ifndef __linux__
     return std::to_string(GetCurrentProcessId());
 #else
     return std::to_string(getpid());
@@ -46,7 +46,7 @@ std::string GetProcessId()
 }
 
 std::string GetDriverDirectory() {
-#ifndef __WINE__
+#ifndef __linux__
     HMODULE hModule = NULL;
     GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         (LPCSTR)&HmdDriverFactory,
@@ -69,36 +69,11 @@ std::string GetDriverDirectory() {
 #endif
 }
 
-void LaunchServer() {
+void LaunchServer(const IgnitionConfig& config) {
     std::string driver_dir = GetDriverDirectory();
     std::string pid_str = GetProcessId();
-    std::string config_path = driver_dir + "/ignition.json";
 
-    std::cout << "Ignition Driver directory: " << driver_dir << std::endl;
-
-    std::ifstream config_file(config_path);
-    if (!config_file.is_open()) {
-        std::cerr << "Failed to open ignition.json" << std::endl;
-        return;
-    }
-
-    nlohmann::json config;
-    try {
-        config_file >> config;
-    } catch (const std::exception&) {
-        std::cerr << "Failed to parse ignition.json" << std::endl;
-        return;
-    }
-
-    std::string server_path;
-    if (config.contains("server_path")) {
-        server_path = config["server_path"];
-    } else {
-        std::cerr << "ignition.json is missing 'server_path'" << std::endl;
-        return;
-    }
-
-#ifndef __WINE__
+#ifndef __linux__
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
 
@@ -106,7 +81,7 @@ void LaunchServer() {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    std::string command_line = "\"" + server_path + "\" " + pid_str;
+    std::string command_line = "\"" + config.server_exe + "\" " + pid_str;
     std::vector<char> command_line_vec(command_line.begin(), command_line.end());
     command_line_vec.push_back('\0');
 
@@ -127,21 +102,19 @@ void LaunchServer() {
         return;
     }
 
+    if (g_hJobObject)
+    {
+        if (!AssignProcessToJobObject(g_hJobObject, pi.hProcess))
+        {
+            std::cerr << "Failed to assign process to job object. Error: " << GetLastError() << std::endl;
+        }
+    }
+
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
-#else // Linux
-    std::vector<std::string> wine_cmd;
-
-    if (config.contains("wine_cmd")) {
-        wine_cmd = config["wine_cmd"].get<std::vector<std::string>>();
-    }
-    else {
-        std::cerr << "ignition.json is missing 'wine_cmd'" << std::endl;
-        exit(1);
-    }
-
-    std::string wine_path = wine_cmd[0];
+#else
+    std::string wine_path = config.wine_cmd[0];
 
     pid_t pid = fork();
     if (pid == 0) {
@@ -152,13 +125,16 @@ void LaunchServer() {
             std::cerr << "Failed to change working directory" << std::endl;
             exit(1);
         }
+
+        // Ensure the child process is killed when the parent exits.
+        prctl(PR_SET_PDEATHSIG, SIGHUP);
         
         // Execute
         std::vector<const char*> args;
-        for (const auto& arg : wine_cmd) {
+        for (const auto& arg : config.wine_cmd) {
             args.push_back(arg.c_str());
         }
-        args.push_back(server_path.c_str());
+        args.push_back(config.server_exe.c_str());
         args.push_back(pid_str.c_str());
 
         args.push_back(NULL); // Null-terminate the argument list
@@ -166,10 +142,9 @@ void LaunchServer() {
         int r = execvp(wine_path.c_str(), const_cast<char* const*>(args.data()));
 
         // If execvp returns, it must have failed.
-        perror("execv");
+        perror("execvp");
         exit(1);
-    }
-    // Parent process continues.
+    }    
 #endif
 }
 
@@ -177,18 +152,26 @@ HMD_DLL_EXPORT
 void *HmdDriverFactory(const char *pInterfaceName, int *pReturnCode) {
     // Initialize on first call
     static bool s_initialized = false;
+
     if (!s_initialized) {
         s_initialized = true;
-        std::string pipe_name = "ignition_pipe_" + GetProcessId();
+
+        std::string driver_dir = GetDriverDirectory();
+        std::string config_path = driver_dir + "/ignition.json";
+        IgnitionConfig config;
+        if (!ParseConfig(config_path, config)) {
+            // Error already printed in ParseConfig
+            return nullptr;
+        }
+
+        std::string pipe_name = "ignition_ipc_" + GetProcessId() + "_" + config.driver_dll;
         RpcSystem::Initialize(pipe_name);
         RegisterRPCClasses();
-    }
 
-    // Launch server, and then create IPC
-    try {
-        LaunchServer();
+        // Create IPC, and then launch server (which will connect to the IPC we created)
         RpcSystem::CreateIPC();
-    } catch(const std::exception& ) {}
+        LaunchServer(config);
+    }
 
     if (strcmp(pInterfaceName, vr::IServerTrackedDeviceProvider_Version) == 0) {
         if (g_pProviderProxy) {

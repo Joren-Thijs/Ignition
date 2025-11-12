@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 
-#ifdef __WINE__
+#ifdef __linux__
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -49,7 +49,7 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
 
-#ifndef __WINE__
+#ifndef __linux__
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
@@ -129,7 +129,7 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 bool CircularBuffer::Open(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
-#ifndef __WINE__
+#ifndef __linux__
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
 
@@ -183,7 +183,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 }
 
 void CircularBuffer::Close() {
-#ifndef __WINE__
+#ifndef __linux__
 	if (data_) {
 		UnmapViewOfFile(data_);
 		data_ = nullptr;
@@ -243,7 +243,7 @@ bool CircularBuffer::write(const char* data, size_t size) {
 
 	data_->lock.clear(std::memory_order_release);
 
-#ifndef __WINE__
+#ifndef __linux__
 	SetEvent(hDataAvailableEvent_);
 #else
 	sem_post(sem_);
@@ -282,7 +282,7 @@ bool CircularBuffer::read(char* data, size_t& size) {
 }
 
 void CircularBuffer::wait_for_data(uint32_t timeout_ms) {
-#ifndef __WINE__
+#ifndef __linux__
 	if (hDataAvailableEvent_) {
 		DWORD ret = WaitForSingleObject(hDataAvailableEvent_, timeout_ms);
 		if (ret != WAIT_TIMEOUT && ret != WAIT_OBJECT_0) {
