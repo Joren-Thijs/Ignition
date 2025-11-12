@@ -101,15 +101,7 @@ void LaunchServer(const IgnitionConfig& config) {
         // Log: "CreateProcess failed"
         return;
     }
-
-    if (g_hJobObject)
-    {
-        if (!AssignProcessToJobObject(g_hJobObject, pi.hProcess))
-        {
-            std::cerr << "Failed to assign process to job object. Error: " << GetLastError() << std::endl;
-        }
-    }
-
+    
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
