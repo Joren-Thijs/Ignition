@@ -81,27 +81,31 @@ void LaunchServer(const IgnitionConfig& config) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    std::string command_line = "\"" + config.server_exe + "\" " + pid_str;
+    // Build path with driver_dir and config.server_exe
+    char full_path[MAX_PATH];
+    PathCombineA(full_path, driver_dir.c_str(), config.server_exe.c_str());
+
+    std::string command_line = "\"" + std::string(full_path) + "\" " + pid_str;
     std::vector<char> command_line_vec(command_line.begin(), command_line.end());
     command_line_vec.push_back('\0');
 
     // Start the child process.
-    if (!CreateProcessA(NULL,   // No module name (use command line)
-        command_line_vec.data(),        // Command line
-        NULL,           // Process handle not inheritable
-        NULL,           // Thread handle not inheritable
-        FALSE,          // Set handle inheritance to FALSE
-        CREATE_NO_WINDOW, // Creation flags
-        NULL,           // Use parent's environment block
-        NULL,           // Use parent's starting directory
-        &si,            // Pointer to STARTUPINFO structure
-        &pi)           // Pointer to PROCESS_INFORMATION structure
+    if (!CreateProcessA(NULL,  // No module name (use command line)
+        command_line_vec.data(),   // Command line
+        NULL,                // Process handle not inheritable
+        NULL,                 // Thread handle not inheritable
+        FALSE,                   // Set handle inheritance to FALSE
+        CREATE_NO_WINDOW,        // Creation flags
+        NULL,                      // Use parent's environment block
+        driver_dir.c_str(),   // Use driver binary directory
+        &si,                       // Pointer to STARTUPINFO structure
+        &pi)                // Pointer to PROCESS_INFORMATION structure
         )
     {
-        // Log: "CreateProcess failed"
+        std::cerr << "CreateProcess failed (" << GetLastError() << ")" << std::endl;
         return;
     }
-    
+
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
