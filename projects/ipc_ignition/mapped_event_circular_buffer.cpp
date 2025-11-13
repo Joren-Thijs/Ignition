@@ -86,7 +86,7 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	shm_unlink(shm_name.c_str());
 	sem_unlink(event_name.c_str());
 
-	shm_fd_ = shm_open(shm_name.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	shm_fd_ = shm_open(shm_name.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	if (shm_fd_ == -1) {
 		std::cerr << "Could not create shared memory object: " << errno << std::endl;
 		return false;
@@ -112,7 +112,7 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	data_->tail = 0;
 	data_->lock.clear(std::memory_order_release);
 
-	sem_ = sem_open(event_name.c_str(), O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, 0);
+	sem_ = sem_open(event_name.c_str(), O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, 0);
 	if (sem_ == SEM_FAILED) {
 		std::cerr << "Failed to create semaphore: " << errno << std::endl;
 		munmap(data_, sizeof(CircularBufferData) + size);
@@ -154,7 +154,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 	std::string shm_name = "/" + name_ + "_shm";
 	std::string event_name = "/" + name_ + "_event";
 
-	shm_fd_ = shm_open(shm_name.c_str(), O_RDWR, 0);
+	shm_fd_ = shm_open(shm_name.c_str(), O_RDWR | O_CLOEXEC, 0);
 	if (shm_fd_ == -1) {
 		std::cout << "Could not open shared memory object: " << errno << std::endl;
 		return false;
@@ -168,7 +168,7 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 		return false;
 	}
 
-	sem_ = sem_open(event_name.c_str(), O_RDWR);
+	sem_ = sem_open(event_name.c_str(), O_RDWR | O_CLOEXEC);
 	if (sem_ == SEM_FAILED) {
 		std::cout << "Failed to open semaphore: " << errno << std::endl;
 		munmap(data_, sizeof(CircularBufferData) + size);
