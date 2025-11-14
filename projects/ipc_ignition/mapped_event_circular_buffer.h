@@ -34,7 +34,7 @@ public:
     bool write(const char* data, size_t size);
     bool read(char* data, size_t& size);
 
-    void wait_for_data(uint32_t timeout_ms);
+    void wait_for_data();
 private:
 	std::string name_;
 #ifndef __linux__

@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <iostream>
+#include <winbase.h>
 
 #ifdef __linux__
 #include <fcntl.h>
@@ -281,25 +282,13 @@ bool CircularBuffer::read(char* data, size_t& size) {
 	return hasRead;
 }
 
-void CircularBuffer::wait_for_data(uint32_t timeout_ms) {
+void CircularBuffer::wait_for_data() {
 #ifndef __linux__
-	if (hDataAvailableEvent_) {
-		DWORD ret = WaitForSingleObject(hDataAvailableEvent_, timeout_ms);
-		if (ret != WAIT_TIMEOUT && ret != WAIT_OBJECT_0) {
-			throw std::runtime_error("Error waiting for event: " + std::to_string(GetLastError()));
-		}
-	}
+	if (hDataAvailableEvent_)
+		WaitForSingleObject(hDataAvailableEvent_, INFINITE);
 #else
-	if (sem_) {
-		struct timespec timeout;
-		clock_gettime(CLOCK_REALTIME, &timeout);
-		timeout.tv_sec += timeout_ms / 1000;
-		
-		int ret = sem_timedwait(sem_, &timeout);
-		if (ret == -1 && errno != ETIMEDOUT && errno != EINTR) {
-			throw std::runtime_error("Error waiting for semaphore: " + std::string(strerror(errno)));
-		}
-	}
+	if (sem_)
+		sem_wait(sem_);
 #endif
 }
 

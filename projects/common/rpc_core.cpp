@@ -227,8 +227,11 @@ void RpcSystem::_Shutdown() {
         return;
     }
     
-    // Listen thread calls mapped_event_circular_buffer_wait_for_data, which is set to timeout after 1 second.
-    // It will exit the loop since running_ is now false.
+    // This unblocks listen_thread_
+    CircularBuffer* pReadBuffer = is_server_ ? pC2S_Buffer_ : pS2C_Buffer_;
+    char noop = 'N';
+    mapped_event_circular_buffer_write(pReadBuffer, &noop, 1);
+    
     if (listen_thread_ && listen_thread_->joinable()) {
         listen_thread_->join();
     }
@@ -341,7 +344,7 @@ void RpcSystem::ListenLoop() {
     static char message[SHM_BUFFER_SIZE];
     
     while (running_) {
-        mapped_event_circular_buffer_wait_for_data(pReadBuffer, 1000);
+        mapped_event_circular_buffer_wait_for_data(pReadBuffer);
 
         if (!running_) {
             break;
@@ -370,8 +373,7 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         ackBuffer.insert(ackBuffer.end(), ptr, endPtr);
         SendRPCMessage(ackBuffer);
         return;
-    }
-    if (msgType == 'C') { // Call
+    } else if (msgType == 'C') { // Call
         uint32_t callId;
         memcpy(&callId, ptr, sizeof(uint32_t));
         ptr += sizeof(uint32_t);
@@ -472,8 +474,9 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
         {
             std::cerr << "Received return for unknown call ID: " << callId << std::endl;
         }
-    }
-    else {
+    } else if (msgType == 'N') {
+        // No-op
+    } else {
         std::cerr << "Unknown message type received: " << msgType << std::endl;
     }
 }
