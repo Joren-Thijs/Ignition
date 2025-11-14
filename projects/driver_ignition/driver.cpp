@@ -121,9 +121,6 @@ void LaunchServer(const IgnitionConfig& config) {
             std::cerr << "Failed to change working directory" << std::endl;
             exit(1);
         }
-
-        // Ensure the child process is killed when the parent exits.
-        prctl(PR_SET_PDEATHSIG, SIGHUP);
         
         // Execute
         std::vector<const char*> args;

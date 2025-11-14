@@ -119,6 +119,8 @@ public:
     template<typename... Args>
     static RpcValue CallMethod(RpcObjectId objId, RpcFunctionEnum funcId, Args... args) { return GetInstance()._CallMethod(objId, funcId, args...); }
 
+    static bool IsAlive() { return GetInstance()._IsAlive(); }
+
     static void CreateIPC() { GetInstance()._CreateIPC(); }
     static bool ConnectToExistingIPC() { return GetInstance()._ConnectToExistingIPC(); }
 
@@ -155,6 +157,7 @@ private:
     bool _ConnectToExistingIPC();
     void _Shutdown();
     void _ShutdownThreadPool();
+    bool _IsAlive();
     bool _IsConnected();
 
     RpcObjectId _GenerateObjectId();

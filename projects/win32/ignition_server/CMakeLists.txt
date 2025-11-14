@@ -17,7 +17,7 @@ target_compile_definitions(ignition_server PUBLIC -DNOMINMAX)
 
 target_link_libraries(ignition_server PRIVATE ignition_common ipc_ignition)
 
-if (USING_WINE)
-    # Wine needs ole32 linked
-    target_link_libraries(ignition_server PRIVATE ole32)
+if (NOT CMAKE_HOST_WIN32 OR CROSS_MINGW)
+    # Wine and MinGW need these linked explicitly
+    target_link_libraries(ignition_server PRIVATE ole32 shlwapi)
 endif()

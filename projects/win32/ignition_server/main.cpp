@@ -2,11 +2,13 @@
 #include "rpc_interfaces.h"
 #include "config.h"
 
-#include <combaseapi.h>
+#include <chrono>
 #include <iostream>
-#include <openvr.hpp>
 #include <string>
-#include <json.hpp>
+
+#include <openvr.hpp>
+
+#include <combaseapi.h>
 #include <shlwapi.h>
 #include <windows.h>
 
@@ -94,21 +96,13 @@ int main(int argc, char *argv[]) {
         return val;
     });
 
-    std::cout << "Ignition server running. Waiting for client to connect..." << std::endl;
+    std::cout << "Ignition server running." << std::endl;
 
-    HANDLE hDriverProcess = OpenProcess(SYNCHRONIZE, FALSE, driver_pid);
-
-    if (hDriverProcess != NULL) {
-        std::cout << "Monitoring driver process " << driver_pid << " for termination." << std::endl;
-        WaitForSingleObject(hDriverProcess, INFINITE);
-        std::cout << "Driver process terminated." << std::endl;
-        CloseHandle(hDriverProcess);
-    }
-    else {
-        std::cout << "Could not open driver process. We'll assume the driver will try to quit this process." << std::endl;
-
-        while (true)
-            Sleep(1000);
+    while (true) {
+        if (!RpcSystem::IsAlive()) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     std::cout << "Client disconnected, shutting down." << std::endl;

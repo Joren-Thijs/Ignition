@@ -364,6 +364,13 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
     const char* endPtr = buffer.data() + buffer.size();
     char msgType = *ptr++;
     
+    if (msgType == 'P') { // Ping
+        std::vector<char> ackBuffer;
+        ackBuffer.push_back('A'); // 'A' for Ack
+        ackBuffer.insert(ackBuffer.end(), ptr, endPtr);
+        SendRPCMessage(ackBuffer);
+        return;
+    }
     if (msgType == 'C') { // Call
         uint32_t callId;
         memcpy(&callId, ptr, sizeof(uint32_t));
@@ -422,6 +429,22 @@ void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
 
             SendRPCMessage(returnBuffer);
         });
+
+    } else if (msgType == 'A') { // Ack
+        uint32_t pingId;
+        memcpy(&pingId, ptr, sizeof(uint32_t));
+        ptr += sizeof(uint32_t);
+
+        std::shared_ptr<PendingCall> pendingCall;
+        {
+            std::lock_guard<std::mutex> lock(pending_calls_mutex_);
+            if (pending_calls_.count(pingId)) {
+                pendingCall = pending_calls_[pingId];
+                pendingCall->returnValue = RpcValue(true);
+                pendingCall->completed = true;
+                pendingCall->cv.notify_one();
+            }
+        }
 
     } else if (msgType == 'R') { // Return
         uint32_t callId;
@@ -582,4 +605,35 @@ RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, cons
     }
 
     return pendingCall->returnValue;
+}
+
+bool RpcSystem::_IsAlive() {
+    if (!_IsConnected()) {
+        return false;
+    }
+
+    uint32_t callId;
+    auto pendingCall = std::make_shared<PendingCall>();
+    {
+        std::lock_guard<std::mutex> lock(pending_calls_mutex_);
+        callId = next_call_id_++;
+        pending_calls_[callId] = pendingCall;
+    }
+
+    std::vector<char> buffer;
+    char msgType = 'P'; // 'P' for Ping
+    buffer.push_back(msgType);
+    buffer.insert(buffer.end(), reinterpret_cast<const char*>(&callId), reinterpret_cast<const char*>(&callId) + sizeof(callId));
+
+    SendRPCMessage(buffer);
+
+    std::unique_lock<std::mutex> lock(pendingCall->mtx);
+    if (!pendingCall->cv.wait_for(lock, std::chrono::milliseconds(200), [&]{ return pendingCall->completed; })) {
+        {
+            std::lock_guard<std::mutex> pc_lock(pending_calls_mutex_);
+            pending_calls_.erase(callId);
+        }
+        return false; // Timed out
+    }
+    return pendingCall->returnValue.asInt();
 }
