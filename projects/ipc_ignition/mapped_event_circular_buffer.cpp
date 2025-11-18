@@ -3,7 +3,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <iostream>
-#include <winbase.h>
 
 #ifdef __linux__
 #include <fcntl.h>
