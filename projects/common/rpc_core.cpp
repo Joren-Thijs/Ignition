@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
+#ifndef __linux__
 #include <windows.h>
 #else
 #include <pthread.h>
@@ -568,7 +568,7 @@ RpcValue RpcSystem::InternalCall(RpcObjectId objId, RpcFunctionEnum funcId, cons
 
     // Stop future calls by exiting this thread. We will not have any safe values to return at this point.
     if (!running_) {
-#ifdef _WIN32
+#ifndef __linux__
         ExitThread(0);
 #else
         pthread_exit(nullptr);
