@@ -9,7 +9,7 @@ include_directories(${CMAKE_SOURCE_DIR}/externals/openvr)
 include_directories(${CMAKE_SOURCE_DIR}/externals/nlohmann)
 include_directories(${CMAKE_SOURCE_DIR}/projects/common)
 
-add_executable(ignition_server
+add_executable(ignition_server WIN32
     main.cpp
 )
 

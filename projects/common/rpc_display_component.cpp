@@ -135,7 +135,30 @@ vr::DistortionCoordinates_t RpcDisplayComponent::ComputeDistortion(vr::EVREye eE
         return vr::DistortionCoordinates_t();
     }
     else {
+#ifdef __MINGW64__
+        // MinGW cross-compile ABI fix for returning structs by value.
+        // The MSVC ABI for returning a struct of this size is to pass a hidden pointer
+        // as the first argument. MinGW GCC doesn't do this by default for virtual calls
+        // across DLL boundaries built with different compilers, leading to a crash.
+        // We work around this by getting the function pointer from the vtable and
+        // calling it with the correct signature using the ms_abi attribute.
+
+        // Define the function pointer type with the Microsoft ABI.
+        // 1st param: 'this' pointer. 2nd param: hidden pointer to the return struct.
+        using ComputeDistortion_ms_abi = void (__attribute__((ms_abi)) *)(void*, vr::DistortionCoordinates_t*, vr::EVREye, float, float);
+
+        // Get the vtable from the object instance.
+        void** vtable = *(void***)real_component_;
+
+        // Get the function pointer. ComputeDistortion is the 7th virtual function (index 6).
+        auto func = (ComputeDistortion_ms_abi)vtable[6];
+
+        vr::DistortionCoordinates_t coords;
+        func(real_component_, &coords, eEye, fU, fV);
+        return coords;
+#else
         return real_component_->ComputeDistortion(eEye, fU, fV);
+#endif
     }
 }
 
