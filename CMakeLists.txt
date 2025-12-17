@@ -1,30 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
-option(CROSS_MINGW "Cross-compile for Windows using MinGW" OFF)
-
-if (CROSS_MINGW)
-    message(STATUS "Cross-compiling for Windows with MinGW toolchain.")
-    set(CMAKE_SYSTEM_NAME Windows)
-    set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
-    set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
-    set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
-    set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
-    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-
-    # Statically link the MinGW runtime libraries to avoid missing DLL errors.
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static")
-elseif(NOT CMAKE_HOST_WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    message(STATUS "Building on non-Windows platform for Wine. Using wine.cmake toolchain.")
-    set(USING_WINE true)
-    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake)
-else()
-    message(STATUS "Building on Windows.")
-endif()
-
 project(ignition)
+
+if(NOT WIN32)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Set standard output directories for all targets in this project
 # because some projects require files from other projects.
@@ -36,3 +16,18 @@ add_subdirectory("projects/ipc_ignition")
 add_subdirectory("projects/common")
 add_subdirectory("projects/driver_ignition")
 add_subdirectory("projects/ignition_server")
+
+if(NOT CMAKE_HOST_WIN32)
+    # Also build IPC as separate project to make the winedll
+    include(ExternalProject)
+    ExternalProject_Add(
+        ipc_ignition_wine
+        SOURCE_DIR      "${CMAKE_CURRENT_SOURCE_DIR}/projects/ipc_ignition"
+        BINARY_DIR      "${CMAKE_CURRENT_BINARY_DIR}/ipc_ignition_build"
+        INSTALL_DIR     "${CMAKE_BINARY_DIR}/lib"
+        CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake
+        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libipc_ignition.so ${CMAKE_BINARY_DIR}/lib/ipc_ignition.dll
+    )
+endif()

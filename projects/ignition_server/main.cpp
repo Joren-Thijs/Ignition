@@ -8,9 +8,13 @@
 
 #include <openvr.hpp>
 
+#ifdef _WIN32
 #include <combaseapi.h>
 #include <shlwapi.h>
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 void *(*pfnHmdDriverFactory)(const char *pInterfaceName, int *pReturnCode) = nullptr;
 
@@ -41,12 +45,13 @@ int main(int argc, char *argv[]) {
     }
 
     std::string pid_str = argv[1];
-    DWORD driver_pid = std::stoul(pid_str);
 
+#ifdef _WIN32
     if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
         printf("Failed to initialize COM.\n");
         return -1;
     }
+#endif
 
     // Read config to find the driver DLL
     std::string config_path = "./ignition.json";
@@ -60,6 +65,7 @@ int main(int argc, char *argv[]) {
     RpcSystem::Initialize(pipe_name);
     RegisterRPCClasses();
 
+#ifdef _WIN32
     HMODULE hModule = LoadLibraryA(config.driver_dll.c_str());
 
     if (!hModule) {
@@ -72,6 +78,20 @@ int main(int argc, char *argv[]) {
         std::cout << "Failed to get HmdDriverFactory address. Error: " << GetLastError() << std::endl;
         return -1;
     }
+#else
+    void* handle = dlopen(config.driver_dll.c_str(), RTLD_LAZY);
+    if (!handle) {
+        std::cerr << "Failed to load driver DLL: " << dlerror() << std::endl;
+        return -1;
+    }
+
+    pfnHmdDriverFactory = reinterpret_cast<decltype(pfnHmdDriverFactory)>(dlsym(handle, "HmdDriverFactory"));
+    if (!pfnHmdDriverFactory) {
+        std::cerr << "Failed to get HmdDriverFactory address: " << dlerror() << std::endl;
+        dlclose(handle);
+        return -1;
+    }
+#endif
 
     int returnCode = vr::VRInitError_None;
     auto *pRealDeviceProvider = static_cast<vr::IServerTrackedDeviceProvider *>(
@@ -109,7 +129,24 @@ int main(int argc, char *argv[]) {
 
     delete g_pRpcProvider;
 
+#ifdef _WIN32
+    FreeLibrary(hModule);
+#else
+    dlclose(handle);
+#endif
+
+#ifdef _WIN32
     CoUninitialize();
+#endif
 
     return 0;
 }
+
+#if defined(_WIN32) && !defined(__WINE__)
+// Redirect to the actual main.
+// WinMain is used that so we can build as a windowed app
+// to not show a console when running under Proton.
+int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow) {
+    return main(__argc, __argv);
+}
+#endif
