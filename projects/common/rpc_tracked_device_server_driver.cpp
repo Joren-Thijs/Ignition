@@ -149,22 +149,6 @@ vr::DriverPose_t RpcTrackedDeviceServerDriver::GetPose() {
         return vr::DriverPose_t();
     }
     else {
-#ifdef __MINGW64__
-        // MinGW cross-compile ABI fix for returning structs by value.
-
-        // 1st param: 'this' pointer. 2nd param: hidden pointer to the return struct.
-        using GetPose_ms_abi = void (__attribute__((ms_abi)) *)(void*, vr::DriverPose_t*);
-
-        void** vtable = *(void***)real_driver_;
-
-        // GetPose is the 6th virtual function (index 5).
-        auto func = (GetPose_ms_abi)vtable[5];
-
-        vr::DriverPose_t pose;
-        func(real_driver_, &pose);
-        return pose;
-#else
         return real_driver_->GetPose();
-#endif
     }
 }

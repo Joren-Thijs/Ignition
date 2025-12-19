@@ -10,6 +10,10 @@
   #define mapped_event_circular_buffer_API
 #endif
 
+#ifndef __WINE__
+#define __cdecl
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

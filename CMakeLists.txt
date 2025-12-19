@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.16)
 
 project(ignition)
 
+# If we're compiling for Windows, it cannot be MinGW due to the ABI.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    message(FATAL_ERROR "MinGW is not supported for Windows builds. Please use MSVC or Clang-MSVC.")
+endif()
+
 if(NOT WIN32)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
