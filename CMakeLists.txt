@@ -33,6 +33,7 @@ if(NOT CMAKE_HOST_WIN32)
         CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake
+        BUILD_ALWAYS    1
         INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libipc_ignition.so ${CMAKE_BINARY_DIR}/lib/ipc_ignition.dll
     )
 endif()
