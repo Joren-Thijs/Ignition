@@ -1,6 +1,10 @@
 #include "rpc_core.h"
 #include "rpc_interfaces.h"
 
+#ifdef _WIN32
+#include "wine_utils.h"
+#endif
+
 #include <cstdint>
 #include <vector>
 
@@ -28,7 +32,7 @@ RpcResources::RpcResources(vr::IVRResources* real) : RpcObject(), real_resources
             buffer.resize(args[2].asUint64());
 
             uint32_t size = this->GetResourceFullPath(resource_name.c_str(), resource_type.c_str(), buffer.data(), buffer.size());
-            if (size > 0 && size <= sizeof(buffer)) {
+            if (size > 0 && size <= buffer.size()) {
                 return RpcValue(buffer);
             }
             return RpcValue(static_cast<uint64_t>(size));
@@ -69,6 +73,19 @@ uint32_t RpcResources::GetResourceFullPath(const char *pchResourceName, const ch
             if (pchPathBuffer) {
                 memcpy(pchPathBuffer, path.data(), path.size());
             }
+
+#ifdef _WIN32
+            if (IsRunningInWine()) {
+                std::string unix_path(path.data(), path.size());
+                std::string windows_path = WineGetDosFileName(unix_path);
+
+                if (pchPathBuffer && unBufferLen > 0) {
+                    memcpy(pchPathBuffer, windows_path.c_str(), std::min((size_t)unBufferLen, windows_path.size() + 1));
+                }
+                return windows_path.size() + 1;
+            }
+#endif
+
             return path.size();
         }
         else {

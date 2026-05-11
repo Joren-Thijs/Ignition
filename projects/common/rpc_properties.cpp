@@ -121,8 +121,20 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
         std::vector<char> request_buffer;
         request_buffer.insert(request_buffer.end(), (char*)&unBatchEntryCount, (char*)&unBatchEntryCount + sizeof(uint32_t));
         for (uint32_t i = 0; i < unBatchEntryCount; ++i) {
+            uint32_t requestedBufferSize = pBatch[i].unBufferSize;
+#ifdef _WIN32
+            if (pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_UserConfigPath_String
+                || pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_InstallPath_String
+                || pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_DriverProvidedChaperonePath_String) {
+                if (IsRunningInWine()) {
+                    // We will have to modify the path, so this means making the buffer max size.
+                    // That so we can run the conversion and do our own size check on the converted path.
+                    requestedBufferSize = vr::k_unMaxPropertyStringSize;
+                }
+            }
+#endif
             request_buffer.insert(request_buffer.end(), (char*)&pBatch[i].prop, (char*)&pBatch[i].prop + sizeof(vr::ETrackedDeviceProperty));
-            request_buffer.insert(request_buffer.end(), (char*)&pBatch[i].unBufferSize, (char*)&pBatch[i].unBufferSize + sizeof(uint32_t));
+            request_buffer.insert(request_buffer.end(), (char*)&requestedBufferSize, (char*)&requestedBufferSize + sizeof(uint32_t));
         }
 
         RpcValue result = RpcSystem::CallMethod(GetId(), RPCFunction_Properties_ReadPropertyBatch, RpcValue(ulContainerHandle), RpcValue(request_buffer.data(), request_buffer.size()));
@@ -167,20 +179,21 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
             pBatch[i].unRequiredBufferSize = batchResult.batch[i].unRequiredBufferSize;
             pBatch[i].eError = batchResult.batch[i].eError;
 
-
-            if (pBatch[i].eError == vr::TrackedProp_Success && pBatch[i].unRequiredBufferSize > 0) {
+            if (pBatch[i].unRequiredBufferSize > 0) {
                 uint32_t bytesToCopy = std::min(pBatch[i].unBufferSize, pBatch[i].unRequiredBufferSize);
                 uint32_t remoteBufferSize = pBatch[i].unRequiredBufferSize;
 
-                if (pBatch[i].pvBuffer && bytesToCopy > 0) {
-                    memcpy(pBatch[i].pvBuffer, current_data_ptr, bytesToCopy);
+                if (bytesToCopy > 0) {
+                    if (pBatch[i].pvBuffer) {
+                        memcpy(pBatch[i].pvBuffer, current_data_ptr, bytesToCopy);
+                    }
 #ifdef _WIN32
                     if (pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_UserConfigPath_String
                         || pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_InstallPath_String
                         || pBatch[i].prop == vr::ETrackedDeviceProperty::Prop_DriverProvidedChaperonePath_String) {
                         if (IsRunningInWine()) {
                             // Turn Unix path into Windows (DOS) path that the Windows SteamVR driver expects
-                            std::string path_str((char*)pBatch[i].pvBuffer, bytesToCopy);
+                            std::string path_str((char*)current_data_ptr, bytesToCopy);
                             std::string windows_path = WineGetDosFileName(path_str);
 
                             // Append null terminator
@@ -188,7 +201,14 @@ vr::ETrackedPropertyError RpcProperties::ReadPropertyBatch(vr::PropertyContainer
                             
                             pBatch[i].unRequiredBufferSize = static_cast<uint32_t>(windows_path.size());
                             bytesToCopy = std::min(pBatch[i].unBufferSize, pBatch[i].unRequiredBufferSize);
-                            memcpy(pBatch[i].pvBuffer, windows_path.c_str(), windows_path.size());
+                            if (pBatch[i].pvBuffer) {
+                                memcpy(pBatch[i].pvBuffer, windows_path.c_str(), windows_path.size());
+                            }
+
+                            // Set error if we can't copy all data into the buffer
+                            if (pBatch[i].unBufferSize < pBatch[i].unRequiredBufferSize) {
+                                pBatch[i].eError = vr::TrackedProp_BufferTooSmall;
+                            }
                         }
                     }
 #endif
