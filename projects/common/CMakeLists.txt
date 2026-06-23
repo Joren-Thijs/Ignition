@@ -25,5 +25,5 @@ target_compile_definitions(ignition_common PUBLIC -DNOMINMAX)
 target_include_directories(ignition_common PUBLIC 
     ${CMAKE_SOURCE_DIR}/externals/openvr 
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/projects/ipc_ignition
+    ${CMAKE_SOURCE_DIR}/projects/ignition_bridge
 )
