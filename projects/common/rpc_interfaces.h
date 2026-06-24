@@ -1,7 +1,8 @@
 #pragma once
 
 #include "rpc_core.h"
-#include <openvr.hpp>
+#include <openvr_driver.h>
+#include <vr_blockqueue.h>
 
 // ************************************
 // RPC wrapper for vr::IVRDriverContext

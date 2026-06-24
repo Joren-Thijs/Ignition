@@ -7,7 +7,7 @@
 #include <string>
 #include <thread>
 
-#include <openvr.hpp>
+#include <openvr_driver.h>
 
 #ifdef _WIN32
 #include <combaseapi.h>

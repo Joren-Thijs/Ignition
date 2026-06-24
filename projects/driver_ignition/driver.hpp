@@ -1,6 +1,6 @@
 #pragma once
 
-#include <openvr.hpp>
+#include <openvr_driver.h>
 
 #ifndef __linux__
 #define HMD_DLL_EXPORT extern "C" __declspec(dllexport)
