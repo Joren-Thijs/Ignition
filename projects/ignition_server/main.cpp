@@ -5,6 +5,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include <openvr.hpp>
 
@@ -59,6 +60,16 @@ int main(int argc, char *argv[]) {
     if (!ParseConfig(config_path, config)) {
         // Error already printed in ParseConfig
         return -1;
+    }
+
+    if (config.wait_for_debugger) {
+        std::cout << "Waiting for debugger to attach..." << std::endl;
+#ifdef _WIN32
+        while (!IsDebuggerPresent()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+#endif
     }
 
     std::string pipe_name = "ignition_ipc_" + pid_str + "_" + config.driver_dll;

@@ -11,6 +11,7 @@ struct IgnitionConfig {
     std::string server_exe;
     std::string driver_dll;
     std::vector<std::string> wine_cmd;
+    bool wait_for_debugger = false;
 };
 
 inline bool ParseConfig(const std::string& config_path, IgnitionConfig& config) {
@@ -44,6 +45,9 @@ inline bool ParseConfig(const std::string& config_path, IgnitionConfig& config) 
 
     if (config_json.contains("wine_cmd")) {
         config.wine_cmd = config_json["wine_cmd"].get<std::vector<std::string>>();
+    }
+    if (config_json.contains("wait_for_debugger")) {
+        config.wait_for_debugger = config_json["wait_for_debugger"].get<bool>();
     }
     return true;
 }
