@@ -63,6 +63,10 @@ void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion,
                 return dynamic_cast<vr::IVRProperties*>(obj);
             } else if (interface_str == vr::IVRResources_Version) {
                 return dynamic_cast<vr::IVRResources*>(obj);
+            } else if (interface_str == vr::IVRPaths_Version) {
+                return dynamic_cast<vr::IVRPaths*>(obj);
+            } else if (interface_str == vr::IVRBlockQueue_Version) {
+                return dynamic_cast<vr::IVRBlockQueue*>(obj);
             }
 
             // If we don't know the interface, we can't safely cast it.
@@ -107,6 +111,10 @@ void* ClientContextManager::GetGenericInterface(const char *pchInterfaceVersion,
             rpc_wrapper = new RpcProperties(static_cast<vr::IVRProperties*>(real_interface));
         } else if (interface_str == vr::IVRResources_Version) {
             rpc_wrapper = new RpcResources(static_cast<vr::IVRResources*>(real_interface));
+        } else if (interface_str == vr::IVRPaths_Version) {
+            rpc_wrapper = new RpcPaths(static_cast<vr::IVRPaths*>(real_interface));
+        } else if (interface_str == vr::IVRBlockQueue_Version) {
+            rpc_wrapper = new RpcBlockQueue(static_cast<vr::IVRBlockQueue*>(real_interface));
         } else {
             // If we don't have a specific wrapper, we can't vend it.
             if (peError) *peError = vr::VRInitError_Init_InterfaceNotFound;

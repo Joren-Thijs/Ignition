@@ -18,6 +18,8 @@ enum RpcClassEnum : uint32_t
     RPCClassDriverManager,
     RPCClassProperties,
     RPCClassResources,
+    RPCClassPaths,
+    RPCClassBlockQueue,
 };
 
 enum RpcFunctionEnum : uint32_t
@@ -139,5 +141,25 @@ enum RpcFunctionEnum : uint32_t
     RPCFunction_Resources_LoadSharedResource,
     RPCFunction_Resources_GetResourceFullPath,
     RPCFunction_Resources_GetResourceSize,
-    RPCFunction_Resources_GetResourceData
+    RPCFunction_Resources_GetResourceData,
+
+    // IVRPaths
+    RPCFunction_Paths_ReadPathBatch,
+    RPCFunction_Paths_WritePathBatch,
+    RPCFunction_Paths_StringToHandle,
+    RPCFunction_Paths_HandleToString,
+    RPCFunction_Paths_RegisterBlockQueue,
+    RPCFunction_Paths_UnregisterBlockQueue,
+    RPCFunction_Paths_CreateBlockQueueOnDriver,
+    RPCFunction_Paths_ConnectBlockQueueOnDriver,
+
+    // IVRBlockQueue RPC Functions
+    RPCFunction_BlockQueue_Create,
+    RPCFunction_BlockQueue_Connect,
+    RPCFunction_BlockQueue_Destroy,
+    RPCFunction_BlockQueue_AcquireWriteOnlyBlock,
+    RPCFunction_BlockQueue_ReleaseWriteOnlyBlock,
+    RPCFunction_BlockQueue_AcquireReadOnlyBlock,
+    RPCFunction_BlockQueue_ReleaseReadOnlyBlock,
+    RPCFunction_BlockQueue_QueueHasReader
 };

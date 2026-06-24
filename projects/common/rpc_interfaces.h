@@ -164,6 +164,7 @@ public:
 
 private:
     vr::ITrackedDeviceServerDriver* real_driver_ = nullptr; // Only valid on the server
+    std::map<std::string, RpcObject*> wrapped_components_; // Only valid on the server
 };
 
 // ***************************************
@@ -323,3 +324,51 @@ public:
 private:
     vr::IVRResources* real_resources_ = nullptr;
 };
+
+// ****************************
+// RPC wrapper for vr::IVRPaths
+// ****************************
+class RpcPaths : public vr::IVRPaths, public RpcObject
+{
+public:
+    RpcPaths(vr::IVRPaths* real);
+    RpcPaths(RpcObjectId id);
+    ~RpcPaths();
+
+    RpcClassEnum GetRpcClassId() const override;
+
+    vr::ETrackedPropertyError ReadPathBatch(vr::PropertyContainerHandle_t ulRootHandle, vr::PathRead_t *pBatch, uint32_t unBatchEntryCount) override;
+    vr::ETrackedPropertyError WritePathBatch(vr::PropertyContainerHandle_t ulRootHandle, vr::PathWrite_t *pBatch, uint32_t unBatchEntryCount) override;
+    vr::ETrackedPropertyError StringToHandle(vr::PathHandle_t *pHandle, const char *pchPath) override;
+    vr::ETrackedPropertyError HandleToString(vr::PathHandle_t pHandle, const char *pchBuffer, uint32_t unBufferSize, uint32_t *punBufferSizeUsed) override;
+
+private:
+    vr::IVRPaths* real_paths_ = nullptr;
+};
+
+// *********************************
+// RPC wrapper for vr::IVRBlockQueue
+// *********************************
+class RpcBlockQueue : public vr::IVRBlockQueue, public RpcObject
+{
+public:
+    RpcBlockQueue(vr::IVRBlockQueue* real);
+    RpcBlockQueue(RpcObjectId id);
+    ~RpcBlockQueue();
+
+    RpcClassEnum GetRpcClassId() const override;
+
+    vr::EBlockQueueError Create(vr::PropertyContainerHandle_t *pulQueueHandle, const char *pchPath, uint32_t unBlockDataSize, uint32_t unBlockHeaderSize, uint32_t unBlockCount, uint32_t unFlags) override;
+    vr::EBlockQueueError Connect(vr::PropertyContainerHandle_t *pulQueueHandle, const char *pchPath) override;
+    vr::EBlockQueueError Destroy(vr::PropertyContainerHandle_t ulQueueHandle) override;
+    vr::EBlockQueueError AcquireWriteOnlyBlock(vr::PropertyContainerHandle_t ulQueueHandle, vr::PropertyContainerHandle_t *pulBlockHandle, void **ppvBuffer) override;
+    vr::EBlockQueueError ReleaseWriteOnlyBlock(vr::PropertyContainerHandle_t ulQueueHandle, vr::PropertyContainerHandle_t ulBlockHandle) override;
+    vr::EBlockQueueError WaitAndAcquireReadOnlyBlock(vr::PropertyContainerHandle_t ulQueueHandle, vr::PropertyContainerHandle_t *pulBlockHandle, void **ppvBuffer, vr::EBlockQueueReadType eReadType, uint32_t unTimeoutMs) override;
+    vr::EBlockQueueError AcquireReadOnlyBlock(vr::PropertyContainerHandle_t ulQueueHandle, vr::PropertyContainerHandle_t *pulBlockHandle, void **ppvBuffer, vr::EBlockQueueReadType eReadType) override;
+    vr::EBlockQueueError ReleaseReadOnlyBlock(vr::PropertyContainerHandle_t ulQueueHandle, vr::PropertyContainerHandle_t ulBlockHandle) override;
+    vr::EBlockQueueError QueueHasReader(vr::PropertyContainerHandle_t ulQueueHandle, bool *pbHasReaders) override;
+
+private:
+    vr::IVRBlockQueue* real_block_queue_ = nullptr;
+};
+

@@ -18,6 +18,8 @@ add_library(ignition_common STATIC
     rpc_driver_manager.cpp
     rpc_properties.cpp
     rpc_resources.cpp
+    rpc_paths.cpp
+    rpc_block_queue.cpp
 )
 
 target_compile_definitions(ignition_common PUBLIC -DNOMINMAX)

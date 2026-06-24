@@ -35,6 +35,8 @@ void RegisterRPCClasses() {
     RpcSystem::RegisterRPCClass<RpcResources>();
     RpcSystem::RegisterRPCClass<RpcDisplayComponent>();
     RpcSystem::RegisterRPCClass<RpcCameraComponent>();
+    RpcSystem::RegisterRPCClass<RpcPaths>();
+    RpcSystem::RegisterRPCClass<RpcBlockQueue>();
 }
 
 int main(int argc, char *argv[]) {

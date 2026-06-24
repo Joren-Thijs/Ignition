@@ -40,7 +40,7 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(vr::ITrackedDeviceSer
                 return RpcValue(); // Return null RpcValue
             }
 
-            return RpcValue(dynamic_cast<RpcObject*>((RpcObject*)component));
+            return RpcValue(static_cast<RpcObject*>(component));
         });
     }
 }
@@ -50,7 +50,11 @@ RpcTrackedDeviceServerDriver::RpcTrackedDeviceServerDriver(RpcObjectId id) : Rpc
     std::cout << "Initializing RpcTrackedDeviceServerDriver proxy with id " << id << std::endl;
 }
 
-RpcTrackedDeviceServerDriver::~RpcTrackedDeviceServerDriver() {}
+RpcTrackedDeviceServerDriver::~RpcTrackedDeviceServerDriver() {
+    for (auto const& [key, val] : wrapped_components_) {
+        delete val;
+    }
+}
 
 RpcClassEnum RpcTrackedDeviceServerDriver::GetRpcClassId() const {
     return RPCClassTrackedDeviceServerDriver;
@@ -94,21 +98,28 @@ void *RpcTrackedDeviceServerDriver::GetComponent(const char *pchComponentNameAnd
 
             std::string interface_str = pchComponentNameAndVersion;
             if (interface_str == vr::IVRDisplayComponent_Version) {
-                return dynamic_cast<vr::IVRDisplayComponent*>(obj);
+                RpcDisplayComponent* disp = static_cast<RpcDisplayComponent*>(obj);
+                return disp;
             } else if (interface_str == vr::IVRCameraComponent_Version) {
-                return dynamic_cast<vr::IVRCameraComponent*>(obj);
+                RpcCameraComponent* cam = static_cast<RpcCameraComponent*>(obj);
+                return cam;
             }
         }
         return nullptr;
     }
     else { // Server-side real object
+        std::string interface_str = pchComponentNameAndVersion;
+        if (wrapped_components_.count(interface_str)) {
+            RpcObject* rpc_wrapper = wrapped_components_.at(interface_str);
+            return rpc_wrapper;
+        }
+
         void* component = real_driver_->GetComponent(pchComponentNameAndVersion);
         if (!component) {
             return nullptr;
         }
 
         RpcObject* rpc_wrapper = nullptr;
-        std::string interface_str = pchComponentNameAndVersion;
 
         if (interface_str == vr::IVRDisplayComponent_Version) {
             rpc_wrapper = new RpcDisplayComponent(static_cast<vr::IVRDisplayComponent*>(component));
@@ -121,6 +132,7 @@ void *RpcTrackedDeviceServerDriver::GetComponent(const char *pchComponentNameAnd
             return nullptr; // Unknown interface
         }
 
+        wrapped_components_[interface_str] = rpc_wrapper;
         return rpc_wrapper;
     }
 }
