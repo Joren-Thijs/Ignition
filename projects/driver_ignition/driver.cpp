@@ -1,7 +1,6 @@
 #include "driver.hpp"
 #include "rpc_interfaces.h"
 #include "config.h"
-#include <string>
 
 #include <json.hpp>
 
@@ -71,7 +70,7 @@ std::string GetDriverDirectory() {
 #endif
 }
 
-void LaunchServer(const IgnitionConfig& config) {
+void LaunchServer(const IgnitionConfig& config, const std::string& config_path) {
     std::string driver_dir = GetDriverDirectory();
     std::string pid_str = GetProcessId();
 
@@ -118,7 +117,7 @@ void LaunchServer(const IgnitionConfig& config) {
     if (pid == 0) {
         // We are in the child. Execute the server.
 
-        // First, change working directory to where driver is located
+        // First, change working directory to where the target driver is located
         if (chdir(driver_dir.c_str()) == -1) {
             std::cerr << "Failed to change working directory" << std::endl;
             exit(1);
@@ -131,6 +130,7 @@ void LaunchServer(const IgnitionConfig& config) {
         }
         args.push_back(config.server_exe.c_str());
         args.push_back(pid_str.c_str());
+        args.push_back(config_path.c_str());
 
         args.push_back(NULL); // Null-terminate the argument list
 
@@ -159,13 +159,13 @@ void *HmdDriverFactory(const char *pInterfaceName, int *pReturnCode) {
             return nullptr;
         }
 
-        std::string pipe_name = "ignition_ipc_" + GetProcessId() + "_" + config.driver_dll;
+        std::string pipe_name = "ignition_ipc_" + GetProcessId();
         RpcSystem::Initialize(pipe_name);
         RegisterRPCClasses();
 
         // Create IPC, and then launch server (which will connect to the IPC we created)
         RpcSystem::CreateIPC();
-        LaunchServer(config);
+        LaunchServer(config, config_path);
     }
 
     if (strcmp(pInterfaceName, vr::IServerTrackedDeviceProvider_Version) == 0) {

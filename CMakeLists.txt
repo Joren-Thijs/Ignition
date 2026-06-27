@@ -37,3 +37,34 @@ if(NOT CMAKE_HOST_WIN32)
         INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge.so ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll
     )
 endif()
+
+set(PACKAGE_DIR ${CMAKE_BINARY_DIR}/Ignition-Linux-Windows)
+
+add_custom_target(package_ignition ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PACKAGE_DIR}
+
+    # Copy support folder
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/support ${PACKAGE_DIR}
+
+    # Copy ignition_server.exe
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe ${PACKAGE_DIR}/ignition_server.exe
+
+    # Copy ignition_bridge.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll ${PACKAGE_DIR}/ignition_bridge.dll
+
+    # Copy libdriver_ignition.so
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so ${PACKAGE_DIR}/libdriver_ignition.so
+
+    COMMENT "Packaging Ignition files into ${PACKAGE_DIR}"
+)
+
+# Add checks to warn if files are missing during configuration.
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe")
+    message(WARNING "ignition_server.exe not found. It will not be packaged.")
+endif()
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll")
+    message(WARNING "ignition_bridge.dll not found. It will not be packaged.")
+endif()
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so")
+    message(WARNING "libdriver_ignition.so not found. It will not be packaged.")
+endif()

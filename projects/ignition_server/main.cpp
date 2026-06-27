@@ -1,7 +1,7 @@
 #include "rpc_core.h"
+#include "wine_utils.h"
 #include "rpc_interfaces.h"
 #include "config.h"
-
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -42,22 +42,27 @@ void RegisterRPCClasses() {
 int main(int argc, char *argv[]) {
     std::cout << "Ignition server starting..." << std::endl;
 
-    if (argc < 2) {
-        std::cout << "Usage: ignition_server <driver process PID>" << std::endl;
+    if (argc < 3) {
+        std::cout << "Usage: ignition_server <driver process PID> <config path>" << std::endl;
         return 1;
     }
 
     std::string pid_str = argv[1];
+    std::string config_path_unix = argv[2];
 
 #ifdef _WIN32
     if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
         printf("Failed to initialize COM.\n");
         return -1;
     }
+
+    // We are running in wine, so translate the unix path to a windows path.
+    std::string config_path = WineGetDosFileName(config_path_unix);
+#else
+    std::string config_path = config_path_unix;
 #endif
 
     // Read config to find the driver DLL
-    std::string config_path = "./ignition.json";
     IgnitionConfig config;
     if (!ParseConfig(config_path, config)) {
         // Error already printed in ParseConfig
@@ -74,12 +79,20 @@ int main(int argc, char *argv[]) {
 #endif
     }
 
-    std::string pipe_name = "ignition_ipc_" + pid_str + "_" + config.driver_dll;
+    std::string pipe_name = "ignition_ipc_" + pid_str;
     RpcSystem::Initialize(pipe_name);
     RegisterRPCClasses();
 
 #ifdef _WIN32
-    HMODULE hModule = LoadLibraryA(config.driver_dll.c_str());
+    // Not having a full path leads to undefined behavior with LOAD_WITH_ALTERED_SEARCH_PATH.
+	// So, GetFullPathNameA will be used to ensure we have a full path.
+	char full_path[MAX_PATH];
+	if (GetFullPathNameA(config.driver_dll.c_str(), MAX_PATH, full_path, NULL) == 0) {
+		std::cout << "Failed to get full path for driver DLL." << std::endl;
+		return -1;
+	}
+	
+	HMODULE hModule = LoadLibraryExA(full_path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
 
     if (!hModule) {
         std::cout << "Failed to load driver DLL. Error: " << GetLastError() << std::endl;
