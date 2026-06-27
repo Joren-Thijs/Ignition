@@ -13,9 +13,9 @@ endif()
 
 # Set standard output directories for all targets in this project
 # because some projects require files from other projects.
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/bin)
 
 add_subdirectory("projects/common")
 add_subdirectory("projects/driver_ignition")
@@ -29,11 +29,11 @@ if(NOT CMAKE_HOST_WIN32)
         ignition_bridge_wine
         SOURCE_DIR      "${CMAKE_CURRENT_SOURCE_DIR}/projects/ignition_bridge"
         BINARY_DIR      "${CMAKE_CURRENT_BINARY_DIR}/ignition_bridge_build"
-        INSTALL_DIR     "${CMAKE_BINARY_DIR}/lib"
+        INSTALL_DIR     "${CMAKE_BINARY_DIR}/WineDLL"
         CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake
         BUILD_ALWAYS    1
-        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge.so ${CMAKE_BINARY_DIR}/lib/ignition_bridge.dll
+        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge.so ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll
     )
 endif()
