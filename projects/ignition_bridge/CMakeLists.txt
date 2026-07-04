@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
 project(ignition_bridge)
 
@@ -15,10 +15,10 @@ add_library(ignition_bridge_static STATIC
 )
 
 target_compile_definitions(ignition_bridge PUBLIC -DNOMINMAX -D_CRT_SECURE_NO_WARNINGS)
-target_include_directories(ignition_bridge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/externals/openvr ${CMAKE_SOURCE_DIR}/externals/nlohmann)
+target_include_directories(ignition_bridge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${IGNITION_ROOT}/externals/openvr ${IGNITION_ROOT}/externals/nlohmann)
 
 target_compile_definitions(ignition_bridge_static PUBLIC -DNOMINMAX -D_CRT_SECURE_NO_WARNINGS)
-target_include_directories(ignition_bridge_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/externals/openvr ${CMAKE_SOURCE_DIR}/externals/nlohmann)
+target_include_directories(ignition_bridge_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${IGNITION_ROOT}/externals/openvr ${IGNITION_ROOT}/externals/nlohmann)
 
 if (USING_WINE)
     target_compile_definitions(ignition_bridge PRIVATE USING_WINE)

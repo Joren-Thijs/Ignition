@@ -11,6 +11,12 @@ set(CMAKE_LINKER lld-link)
 set(CMAKE_C_COMPILER_TARGET x86_64-pc-windows-msvc)
 set(CMAKE_CXX_COMPILER_TARGET x86_64-pc-windows-msvc)
 
+# Point to the LLVM MASM-compatible assembler
+set(CMAKE_ASM_MASM_COMPILER llvm-ml)
+
+# llvm-ml needs the -m64 flag to act like ml64
+set(CMAKE_ASM_MASM_FLAGS "-m64")
+
 # Define the Windows SDK path (adjust the path if necessary)
 set(WIN_SDK_PATH "$ENV{HOME}/.xwin-cache/splat")
 
@@ -22,10 +28,11 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 # Add specific include and library paths for the Windows SDK components
 # Use -isystem to treat these as system includes (suppresses warnings)
-string(APPEND CMAKE_C_FLAGS " -isystem ${WIN_SDK_PATH}/crt/include")
-string(APPEND CMAKE_C_FLAGS " -isystem ${WIN_SDK_PATH}/sdk/include/ucrt")
-string(APPEND CMAKE_C_FLAGS " -isystem ${WIN_SDK_PATH}/sdk/include/shared")
-string(APPEND CMAKE_C_FLAGS " -isystem ${WIN_SDK_PATH}/sdk/include/um")
+string(APPEND CMAKE_C_FLAGS " -Xclang -internal-isystem -Xclang ${WIN_SDK_PATH}/crt/include")
+string(APPEND CMAKE_C_FLAGS " -Xclang -internal-isystem -Xclang ${WIN_SDK_PATH}/sdk/include/ucrt")
+string(APPEND CMAKE_C_FLAGS " -Xclang -internal-isystem -Xclang ${WIN_SDK_PATH}/sdk/include/shared")
+string(APPEND CMAKE_C_FLAGS " -Xclang -internal-isystem -Xclang ${WIN_SDK_PATH}/sdk/include/um")
+string(APPEND CMAKE_C_FLAGS " -Xclang -internal-isystem -Xclang ${WIN_SDK_PATH}/sdk/include/winrt")
 
 # Same for CXX
 string(APPEND CMAKE_CXX_FLAGS " ${CMAKE_C_FLAGS}")

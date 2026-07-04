@@ -1,13 +1,12 @@
-# Driver CMake project
 cmake_minimum_required(VERSION 3.16)
 
 project(driver_ignition)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(${CMAKE_SOURCE_DIR}/externals/nlohmann)
-include_directories(${CMAKE_SOURCE_DIR}/externals/openvr)
-include_directories(${CMAKE_SOURCE_DIR}/projects/common)
+include_directories(${IGNITION_ROOT}/externals/nlohmann)
+include_directories(${IGNITION_ROOT}/externals/openvr)
+include_directories(${IGNITION_ROOT}/projects/common)
 
 add_library(driver_ignition SHARED
   driver.cpp

@@ -1,5 +1,0 @@
-{
-  "server_exe": "ignition_server.exe",
-  "wine_cmd": ["steam-runtime-launch-client", "--alongside-steam", "--", "wine"],
-  "driver_dll": "driver_playstation_vr2.dll"
-}

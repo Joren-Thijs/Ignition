@@ -17,13 +17,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/bin)
 
+set(IGNITION_ROOT "${CMAKE_SOURCE_DIR}")
+
 add_subdirectory("projects/common")
 add_subdirectory("projects/driver_ignition")
 add_subdirectory("projects/ignition_bridge")
 add_subdirectory("projects/ignition_server")
 
 if(NOT CMAKE_HOST_WIN32)
-    # Also build IPC as separate project to make the winedll
+    # Build IPC as separate project to make the winedll
     include(ExternalProject)
     ExternalProject_Add(
         ignition_bridge_wine
@@ -33,38 +35,37 @@ if(NOT CMAKE_HOST_WIN32)
         CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake
+                        -DIGNITION_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
         BUILD_ALWAYS    1
         INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge.so ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll
     )
-endif()
 
-set(PACKAGE_DIR ${CMAKE_BINARY_DIR}/Ignition-Linux-Windows)
+    # Build server as separate project to make the Windows binary
+    ExternalProject_Add(
+        ignition_server_windows
+        SOURCE_DIR      "${CMAKE_CURRENT_SOURCE_DIR}/projects/ignition_server"
+        BINARY_DIR      "${CMAKE_CURRENT_BINARY_DIR}/ignition_server_build"
+        INSTALL_DIR     "${CMAKE_BINARY_DIR}/Windows/bin"
+        CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/clang-x86-64-pc-windows-msvc.cmake
+                        -DIGNITION_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
+        BUILD_ALWAYS    1
+        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/ignition_server.exe ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe
+    )
 
-add_custom_target(package_ignition ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${PACKAGE_DIR}
+    set(PACKAGE_DIR ${CMAKE_BINARY_DIR}/Ignition-Linux-Windows)
 
-    # Copy support folder
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/support ${PACKAGE_DIR}
+    add_custom_target(package_ignition ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PACKAGE_DIR}
 
-    # Copy ignition_server.exe
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe ${PACKAGE_DIR}/ignition_server.exe
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/support ${PACKAGE_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe ${PACKAGE_DIR}/ignition_server.exe
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll ${PACKAGE_DIR}/ignition_bridge.dll
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so ${PACKAGE_DIR}/libdriver_ignition.so
 
-    # Copy ignition_bridge.dll
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll ${PACKAGE_DIR}/ignition_bridge.dll
+        COMMENT "Packaging Ignition files into ${PACKAGE_DIR}"
+    )
 
-    # Copy libdriver_ignition.so
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so ${PACKAGE_DIR}/libdriver_ignition.so
-
-    COMMENT "Packaging Ignition files into ${PACKAGE_DIR}"
-)
-
-# Add checks to warn if files are missing during configuration.
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe")
-    message(WARNING "ignition_server.exe not found. It will not be packaged.")
-endif()
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll")
-    message(WARNING "ignition_bridge.dll not found. It will not be packaged.")
-endif()
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so")
-    message(WARNING "libdriver_ignition.so not found. It will not be packaged.")
+    add_dependencies(package_ignition ignition_server_windows ignition_bridge_wine driver_ignition)
 endif()
