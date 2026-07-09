@@ -1,4 +1,4 @@
-#include "driver.hpp"
+#include "driver.h"
 #include "rpc_interfaces.h"
 #include "config.h"
 
@@ -46,6 +46,16 @@ std::string GetProcessId()
 #endif
 }
 
+std::string GetConnectionString(const std::string& driver_dll) {
+    std::string pid = GetProcessId();
+    std::string to_hash = driver_dll + "_" + pid;
+    size_t hash = std::hash<std::string>{}(to_hash);
+    
+    std::stringstream ss;
+    ss << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return ss.str();
+}
+
 std::string GetDriverDirectory() {
 #ifndef __linux__
     HMODULE hModule = NULL;
@@ -70,9 +80,8 @@ std::string GetDriverDirectory() {
 #endif
 }
 
-void LaunchServer(const IgnitionConfig& config, const std::string& config_path) {
+void LaunchServer(const IgnitionConfig& config, const std::string& config_path, const std::string& connection_str) {
     std::string driver_dir = GetDriverDirectory();
-    std::string pid_str = GetProcessId();
 
 #ifndef __linux__
     STARTUPINFOA si;
@@ -86,7 +95,7 @@ void LaunchServer(const IgnitionConfig& config, const std::string& config_path) 
     char full_path[MAX_PATH];
     PathCombineA(full_path, driver_dir.c_str(), config.server_exe.c_str());
 
-    std::string command_line = "\"" + std::string(full_path) + "\" " + pid_str;
+    std::string command_line = "\"" + std::string(full_path) + "\" " + connection_str + " \"" + config_path + "\"";
     std::vector<char> command_line_vec(command_line.begin(), command_line.end());
     command_line_vec.push_back('\0');
 
@@ -129,7 +138,7 @@ void LaunchServer(const IgnitionConfig& config, const std::string& config_path) 
             args.push_back(arg.c_str());
         }
         args.push_back(config.server_exe.c_str());
-        args.push_back(pid_str.c_str());
+        args.push_back(connection_str.c_str());
         args.push_back(config_path.c_str());
 
         args.push_back(NULL); // Null-terminate the argument list
@@ -159,13 +168,14 @@ void *HmdDriverFactory(const char *pInterfaceName, int *pReturnCode) {
             return nullptr;
         }
 
-        std::string pipe_name = "ignition_ipc_" + GetProcessId();
+        std::string connection_str = GetConnectionString(config.driver_dll);
+        std::string pipe_name = "ignition_ipc_" + connection_str;
         RpcSystem::Initialize(pipe_name);
         RegisterRPCClasses();
 
         // Create IPC, and then launch server (which will connect to the IPC we created)
         RpcSystem::CreateIPC();
-        LaunchServer(config, config_path);
+        LaunchServer(config, config_path, connection_str);
     }
 
     if (strcmp(pInterfaceName, vr::IServerTrackedDeviceProvider_Version) == 0) {

@@ -43,11 +43,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Ignition server starting..." << std::endl;
 
     if (argc < 3) {
-        std::cout << "Usage: ignition_server <driver process PID> <config path>" << std::endl;
+        std::cout << "Usage: ignition_server <connection string> <config path>" << std::endl;
         return 1;
     }
 
-    std::string pid_str = argv[1];
+    std::string connection_str = argv[1];
     std::string config_path_unix = argv[2];
 
 #ifdef _WIN32
@@ -70,16 +70,19 @@ int main(int argc, char *argv[]) {
     }
 
     if (config.wait_for_debugger) {
-        std::cout << "Waiting for debugger to attach..." << std::endl;
 #ifdef _WIN32
+        std::cout << "Waiting for debugger to attach..." << std::endl;
         while (!IsDebuggerPresent()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
+#else
+        std::cout << "Waiting 5 seconds..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif
     }
 
-    std::string pipe_name = "ignition_ipc_" + pid_str;
+    std::string pipe_name = "ignition_ipc_" + connection_str;
     RpcSystem::Initialize(pipe_name);
     RegisterRPCClasses();
 
