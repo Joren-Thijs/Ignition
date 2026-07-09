@@ -48,19 +48,19 @@ int main(int argc, char *argv[]) {
     }
 
     std::string connection_str = argv[1];
-    std::string config_path_unix = argv[2];
+    std::string config_path = argv[2];
 
 #ifdef _WIN32
     if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
         printf("Failed to initialize COM.\n");
         return -1;
     }
-
-    // We are running in wine, so translate the unix path to a windows path.
-    std::string config_path = WineGetDosFileName(config_path_unix);
-#else
-    std::string config_path = config_path_unix;
 #endif
+
+    if (IsRunningInWine()) {
+        // We are running in wine, so translate the unix path to a windows path.
+        config_path = WineGetDosFileName(config_path);
+    }
 
     // Read config to find the driver DLL
     IgnitionConfig config;
@@ -155,6 +155,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "Client disconnected, shutting down." << std::endl;
+    RpcSystem::Shutdown();
 
     delete g_pRpcProvider;
 
