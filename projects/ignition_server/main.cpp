@@ -55,13 +55,13 @@ int main(int argc, char *argv[]) {
         printf("Failed to initialize COM.\n");
         return -1;
     }
-#endif
-
+    
     if (IsRunningInWine()) {
         // We are running in wine, so translate the unix path to a windows path.
         config_path = WineGetDosFileName(config_path);
     }
-
+#endif
+    
     // Read config to find the driver DLL
     IgnitionConfig config;
     if (!ParseConfig(config_path, config)) {

@@ -4,7 +4,7 @@
 
 #include <json.hpp>
 
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
 #include <windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -12,10 +12,13 @@
 #include <sys/types.h>
 #include <dlfcn.h>
 #include <unistd.h>
-#include <linux/limits.h>
 #include <vector>
-#include <sys/prctl.h>
 #include <signal.h>
+#endif
+
+#ifdef __linux__
+#include <sys/prctl.h>
+#include <linux/limits.h>
 #endif
 
 static RpcServerTrackedDeviceProvider* g_pProviderProxy = nullptr;
@@ -39,7 +42,7 @@ void RegisterRPCClasses() {
 
 std::string GetProcessId()
 {
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
     return std::to_string(GetCurrentProcessId());
 #else
     return std::to_string(getpid());
@@ -57,7 +60,7 @@ std::string GetConnectionString(const std::string& driver_dll) {
 }
 
 std::string GetDriverDirectory() {
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
     HMODULE hModule = NULL;
     GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         (LPCSTR)&HmdDriverFactory,
@@ -83,7 +86,7 @@ std::string GetDriverDirectory() {
 void LaunchServer(const IgnitionConfig& config, const std::string& config_path, const std::string& connection_str) {
     std::string driver_dir = GetDriverDirectory();
 
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
 

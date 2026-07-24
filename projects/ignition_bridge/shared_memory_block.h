@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
 #include <windows.h>
 #else
 #include <sys/mman.h>
@@ -16,7 +16,7 @@ namespace ipc {
 class SharedMemoryBlock {
 public:
     SharedMemoryBlock() : data_(nullptr), size_(0) {
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
         hMapFile_ = NULL;
 #else
         shm_fd_ = -1;
@@ -30,7 +30,7 @@ public:
     bool Create(const std::string& name, size_t size) {
         name_ = name;
         size_ = size;
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
         std::string shm_name = name_ + "_shm";
         hMapFile_ = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)size, shm_name.c_str());
         if (hMapFile_ == NULL) return false;
@@ -64,7 +64,7 @@ public:
     bool Open(const std::string& name, size_t size) {
         name_ = name;
         size_ = size;
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
         std::string shm_name = name_ + "_shm";
         hMapFile_ = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm_name.c_str());
         if (hMapFile_ == NULL) return false;
@@ -90,7 +90,7 @@ public:
     }
 
     void Close() {
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
         if (data_) {
             UnmapViewOfFile(data_);
             data_ = nullptr;
@@ -119,7 +119,7 @@ private:
     std::string name_;
     size_t size_;
     void* data_;
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
     HANDLE hMapFile_;
 #else
     int shm_fd_;

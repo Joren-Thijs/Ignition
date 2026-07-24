@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
   #define shared_memory_block_API __declspec(dllexport)
 #else
   #define shared_memory_block_API

@@ -37,7 +37,7 @@ if(NOT CMAKE_HOST_WIN32)
                         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/wine.cmake
                         -DIGNITION_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
         BUILD_ALWAYS    1
-        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge.so ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll
+        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libignition_bridge${CMAKE_SHARED_LIBRARY_SUFFIX} ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll
     )
 
     # Build server as separate project to make the Windows binary
@@ -48,13 +48,14 @@ if(NOT CMAKE_HOST_WIN32)
         INSTALL_DIR     "${CMAKE_BINARY_DIR}/Windows/bin"
         CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_TRY_COMPILE_CONFIGURATION=Release
                         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/clang-x86-64-pc-windows-msvc.cmake
                         -DIGNITION_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
         BUILD_ALWAYS    1
         INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/ignition_server.exe ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe
     )
 
-    set(PACKAGE_DIR ${CMAKE_BINARY_DIR}/Ignition-Linux-Windows)
+    set(PACKAGE_DIR ${CMAKE_BINARY_DIR}/Ignition-${CMAKE_SYSTEM_NAME}-Windows)
 
     add_custom_target(package_ignition ALL
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PACKAGE_DIR}
@@ -62,7 +63,7 @@ if(NOT CMAKE_HOST_WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/support ${PACKAGE_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe ${PACKAGE_DIR}/ignition_server.exe
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/WineDLL/ignition_bridge.dll ${PACKAGE_DIR}/ignition_bridge.dll
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Linux/lib/libdriver_ignition.so ${PACKAGE_DIR}/libdriver_ignition.so
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/${CMAKE_SYSTEM_NAME}/lib/libdriver_ignition${CMAKE_SHARED_LIBRARY_SUFFIX} ${PACKAGE_DIR}/libdriver_ignition${CMAKE_SHARED_LIBRARY_SUFFIX}
 
         COMMENT "Packaging Ignition files into ${PACKAGE_DIR}"
     )

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 // DLL export
-#ifndef __linux__
+#if defined(_WIN32) && !USING_WINE
   #define mapped_event_circular_buffer_API __declspec(dllexport)
 #else
   #define mapped_event_circular_buffer_API
