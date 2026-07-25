@@ -12,7 +12,7 @@ include_directories(${IGNITION_ROOT}/projects/common)
 if(NOT TARGET ignition_common)
     add_subdirectory(${IGNITION_ROOT}/projects/common    ${CMAKE_BINARY_DIR}/common)
 endif()
-if(NOT TARGET ignition_bridge_static)
+if(NOT TARGET ignition_bridge)
     add_subdirectory(${IGNITION_ROOT}/projects/ignition_bridge ${CMAKE_BINARY_DIR}/ignition_bridge)
 endif()
 
