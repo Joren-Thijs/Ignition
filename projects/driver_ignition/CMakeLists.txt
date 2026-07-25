@@ -12,7 +12,7 @@ add_library(driver_ignition SHARED
   driver.cpp
 )
 
-target_link_libraries(driver_ignition PRIVATE ignition_common ignition_bridge)
+target_link_libraries(driver_ignition PRIVATE ignition_common ignition_bridge_static)
 set_target_properties(driver_ignition PROPERTIES LINKER_LANGUAGE CXX)
 
 if (WIN32)

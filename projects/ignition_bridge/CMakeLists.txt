@@ -41,6 +41,9 @@ else()
     add_library(ignition_bridge SHARED $<TARGET_OBJECTS:ignition_bridge_objs>)
 endif()
 
+add_library(ignition_bridge_static STATIC $<TARGET_OBJECTS:ignition_bridge_objs>)
+
 if (NOT WIN32)
     target_link_libraries(ignition_bridge PRIVATE ${CMAKE_DL_LIBS})
+    target_link_libraries(ignition_bridge_static PRIVATE ${CMAKE_DL_LIBS})
 endif()

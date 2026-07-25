@@ -62,7 +62,6 @@ if(NOT CMAKE_HOST_WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/support ${PACKAGE_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/Windows/bin/ignition_server.exe ${PACKAGE_DIR}/ignition_server.exe
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ignition_bridge> ${PACKAGE_DIR}/ignition_bridge.dll
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ignition_bridge> ${PACKAGE_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ignition_bridge${CMAKE_SHARED_LIBRARY_SUFFIX}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:driver_ignition> ${PACKAGE_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}driver_ignition${CMAKE_SHARED_LIBRARY_SUFFIX}
 
         COMMENT "Packaging Ignition files into ${PACKAGE_DIR}"
