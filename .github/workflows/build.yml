@@ -31,18 +31,24 @@ jobs:
           $SUDO apt-get update
           $SUDO apt-get install -y cmake ninja-build wine64-tools libwine-dev || $SUDO apt-get install -y cmake ninja-build wine libwine-dev
 
-      - name: Install LLVM / Clang 19
+      - name: Install LLVM / Clang 22
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          export DEBIAN_FRONTEND=noninteractive
           wget -q https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           $SUDO ./llvm.sh 22
           $SUDO update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+          $SUDO update-alternatives --set clang /usr/bin/clang-22 || true
           $SUDO update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100
+          $SUDO update-alternatives --set clang++ /usr/bin/clang++-22 || true
           $SUDO update-alternatives --install /usr/bin/lld-link lld-link /usr/bin/lld-link-22 100
+          $SUDO update-alternatives --set lld-link /usr/bin/lld-link-22 || true
           $SUDO update-alternatives --install /usr/bin/llvm-rc llvm-rc /usr/bin/llvm-rc-22 100
+          $SUDO update-alternatives --set llvm-rc /usr/bin/llvm-rc-22 || true
           $SUDO update-alternatives --install /usr/bin/llvm-ml llvm-ml /usr/bin/llvm-ml-22 100
+          $SUDO update-alternatives --set llvm-ml /usr/bin/llvm-ml-22 || true
 
       - name: Install xwin
         uses: taiki-e/install-action@v2
