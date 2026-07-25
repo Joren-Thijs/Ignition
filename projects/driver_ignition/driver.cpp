@@ -4,7 +4,7 @@
 
 #include <json.hpp>
 
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
 #include <windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -42,7 +42,7 @@ void RegisterRPCClasses() {
 
 std::string GetProcessId()
 {
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
     return std::to_string(GetCurrentProcessId());
 #else
     return std::to_string(getpid());
@@ -60,7 +60,7 @@ std::string GetConnectionString(const std::string& driver_dll) {
 }
 
 std::string GetDriverDirectory() {
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
     HMODULE hModule = NULL;
     GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         (LPCSTR)&HmdDriverFactory,
@@ -86,7 +86,7 @@ std::string GetDriverDirectory() {
 void LaunchServer(const IgnitionConfig& config, const std::string& config_path, const std::string& connection_str) {
     std::string driver_dir = GetDriverDirectory();
 
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
 

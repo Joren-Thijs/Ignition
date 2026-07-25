@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string>
 
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
 #include <windows.h>
 #else
 #include <semaphore.h>
@@ -37,7 +37,7 @@ public:
     void wait_for_data();
 private:
 	std::string name_;
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
 	HANDLE hMapFile_ = NULL;
 	HANDLE hDataAvailableEvent_ = NULL;
 #else

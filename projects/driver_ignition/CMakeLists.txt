@@ -15,6 +15,6 @@ add_library(driver_ignition SHARED
 target_link_libraries(driver_ignition PRIVATE ignition_common ignition_bridge)
 set_target_properties(driver_ignition PROPERTIES LINKER_LANGUAGE CXX)
 
-if (CMAKE_HOST_WIN32)
+if (WIN32)
   target_link_libraries(driver_ignition PRIVATE shlwapi)
 endif()

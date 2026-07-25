@@ -31,6 +31,6 @@ target_compile_definitions(ignition_server PUBLIC -DNOMINMAX)
 
 target_link_libraries(ignition_server PRIVATE ignition_common ignition_bridge)
 
-if (CMAKE_HOST_WIN32 OR USING_WINE)
+if (WIN32)
     target_link_libraries(ignition_server PRIVATE ole32 shlwapi)
 endif()

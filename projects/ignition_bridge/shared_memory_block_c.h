@@ -3,14 +3,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#if defined(_WIN32) && !USING_WINE
+#ifdef _WIN32
   #define shared_memory_block_API __declspec(dllexport)
 #else
   #define shared_memory_block_API
 #endif
 
-#ifndef __WINE__
-#define __cdecl
+#ifndef _MSC_VER
+#define __cdecl __attribute__((ms_abi))
 #endif
 
 #ifdef __cplusplus
