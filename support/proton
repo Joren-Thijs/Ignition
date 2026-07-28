@@ -1,0 +1,206 @@
+#!/bin/bash
+
+# Thanks to brunoais for making the original script! https://gist.github.com/brunoais/575db9912368124d3223784afe20158c
+# This has been modified quite a bit, but still somewhat based on the original.
+
+# Execute Windows programs with Proton from Steams installation folder, without
+# starting Steam client.
+#
+# 1. Create a directory for Proton environment to run in.  As an example make a
+#    folder "proton" in your home directory. This folder must exist in order
+#    to make Proton work.
+#
+# 2. Point the variable "env_dir" in this script to that folder or...
+#
+# 3. ... alternatively set the environmenal variable "$PROTONPREFIX" to this
+#    folder before running the script. It works similar to the "$WINEPREFIX"
+#    from WINE and will have higher priority over "env_dir".
+#
+# 4. Look in your Steam installation folder at "steamapps/common/" folder for
+#    available Proton versions. Pick one and point the script variable
+#    "proton_version" to this that folder name, in example "Proton 3.16".
+#    Note: You have to download a Proton version from Steam first, if none is
+#    there yet.
+#
+# 5. Or alternatively set the environmental variable "$PROTONVERSION" to that
+#    folder name of Proton version before running the script. It has higher
+#    priority over script variable "proton_version".
+#
+# 6. Optionally install/copy this script in a directory that is in your $PATH,
+#    so you can run it easily from any place. Or set the default interpreter
+#    for .exe files to this script.
+#
+# Usage:
+#   proton run program.exe
+#
+# or:
+#   export PROTONPREFIX="$HOME/proton_316"
+#   export PROTONVERSION="Proton 3.16"
+#   proton run program.exe
+
+# Path to installation directory of Steam.
+# Contains the possibilities on where to find Steam
+possible_client_dirs=( "$HOME/.local/share/Steam" "$HOME/.steam/steam" "$HOME/.steam/root" "/var/.steam" "/var/steam" "/var/local/Steam" )
+
+# Default data folder for Proton/WINE environment.
+# Folder must exist.
+# If the environmental variable PROTONPREFIX is set, it will overwrite the value set here.
+# If no directory is found, the last one is created and used
+alternative_env_dirs=( "$HOME/proton"  "$HOME/.proton" )
+
+# Proton logging.
+# Uncomment to activate logging for proton
+# export PROTON_LOG="+timestamp,+pid,+tid,+seh,+debugstr,+module"
+# export PROTON_LOG_DIR="/dev/shm/proton"
+
+echoerr() { echo "$@" 1>&2; }
+
+discover_proton_version () {
+    # If PROTONVERSION env var is set, use it directly if found in common paths
+    if [ -n "$PROTONVERSION" ]; then
+        echoerr "Searching for requested Proton version: $PROTONVERSION"
+    fi
+
+    # Array to store found proton paths
+    found_protons=()
+
+    for possible_client_dir in "${possible_client_dirs[@]}"
+    do
+        if [ -d "$possible_client_dir" ]; then
+            client_dir="${client_dir:-$possible_client_dir}"
+
+            # 1. Search in steamapps/common (Official Proton)
+            # We look for directories matching "Proton*" and ensure they contain the 'proton' script
+            common_dir="$possible_client_dir/steamapps/common"
+            if [ -d "$common_dir" ]; then
+                for p_dir in "$common_dir"/Proton*; do
+                    if [ -f "$p_dir/proton" ]; then
+                        found_protons+=("$p_dir")
+                    fi
+                done
+            fi
+
+            # 2. Search in compatibilitytools.d (Custom/GE-Proton)
+            # Custom tools are often installed here. They might not start with "Proton" so we check all.
+            compat_dir="$possible_client_dir/compatibilitytools.d"
+            if [ -d "$compat_dir" ]; then
+                for p_dir in "$compat_dir"/*; do
+                    if [ -f "$p_dir/proton" ]; then
+                        found_protons+=("$p_dir")
+                    fi
+                done
+            fi
+        fi
+    done
+
+    # Sort found versions to pick the "latest" (lexicographically)
+    # This usually puts "Proton 9.0" above "Proton 8.0", though "Experimental" might sort oddly.
+    # We use sort -V (version sort) if available, otherwise standard sort.
+    IFS=$'\n' sorted_protons=($(sort -Vr <<<"${found_protons[*]}"))
+    unset IFS
+
+    if [ ${#sorted_protons[@]} -eq 0 ]; then
+        echoerr "No Proton installations found! Please install Proton via Steam."
+        exit 1
+    fi
+
+    # If user requested a specific version via PROTONVERSION, try to match it
+    if [ -n "$PROTONVERSION" ]; then
+        for path in "${sorted_protons[@]}"; do
+            if [[ "$path" == *"/$PROTONVERSION" ]]; then
+                proton_root="$path"
+                proton_version="$PROTONVERSION"
+                echoerr "Selected requested version: $proton_version at $proton_root"
+                return
+            fi
+        done
+        echoerr "Requested version '$PROTONVERSION' not found. Falling back to latest detected."
+    fi
+
+    # Pick the first one (highest version due to sort -r)
+    proton_root="${sorted_protons[0]}"
+    proton_version=$(basename "$proton_root")
+
+    echoerr "Auto-selected Proton version: $proton_version"
+    echoerr "Path: $proton_root"
+}
+
+discover_env_dir () {
+	for alternative_env_dir in "${alternative_env_dirs[@]}"
+	do
+
+		if [[ -d "$alternative_env_dir" ]]
+		then
+			echoerr "alternative_env_dir:" "$alternative_env_dir"
+			env_dir="$alternative_env_dir"
+			return
+		fi
+
+	done
+
+	env_dir=${alternative_env_dirs[-1]}
+	echoerr "final fallback env dir:" "$env_dir"
+}
+
+client_dir=
+env_dir=
+proton_version=
+
+
+if [[ "$1" =~ ((.*?)/steamapps/common/([^/]+)/) ]]
+then
+
+	app_dir="${BASH_REMATCH[1]}"
+	client_dir="${BASH_REMATCH[2]}"
+	app_dir_name="${BASH_REMATCH[3]}"
+
+	# get the appid
+	app_id=$(grep '"appid"' "$(grep -l "$app_dir_name" "$client_dir/steamapps/"*.acf)" | sed -Ee 's/.*?"([0-9]+)".*/\1/g')
+
+
+	env_dir="$client_dir/steamapps/compatdata/$app_id/"
+
+	echo "$env_dir"
+
+	if [[ ! -d "$env_dir" ]]
+	then
+		env_dir="${alternative_env_dirs[0]}"
+		echoerr "Env dir final fallback"
+	fi
+
+
+	echoerr "Env dir as:" " $env_dir"
+else
+	# No specific game path provided, just discover versions and client dir
+	discover_proton_version
+fi
+
+
+# ENVIRONMENTAL VARIABLES
+if [ -n "${PROTONPREFIX+1}" ]
+then
+    env_dir=$PROTONPREFIX
+elif [ -z $env_dir ]
+then
+	discover_env_dir
+fi
+
+# Note: discover_proton_version sets 'proton_root' which is the full path.
+# If we haven't run discovery yet (e.g. because we entered the 'if' block above), run it now.
+if [ -z "$proton_root" ]; then
+    discover_proton_version
+fi
+
+
+# EXECUTE
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=$client_dir
+export STEAM_COMPAT_DATA_PATH=$env_dir
+
+[[ ! -z "$PROTON_LOG" ]] && echo "$proton_root/proton" $*
+[[ ! -z "$PROTON_LOG_DIR" ]] && mkdir -p "$PROTON_LOG_DIR"
+
+# Make sure the directory exists
+[ -d "$env_dir" ] || (mkdir -p "$env_dir" && echoerr "Proton directory created: $env_dir")
+
+# Use the fully discovered path 'proton_root' instead of constructing it manually
+"$proton_root/proton" "$@"

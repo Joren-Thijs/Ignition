@@ -1,0 +1,75 @@
+name: Build Ignition
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Ignition-Linux-Windows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache xwin MSVC SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.xwin-cache
+          key: ${{ runner.os }}-xwin-msvc-v1
+
+      - name: Install system dependencies
+        run: |
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          $SUDO apt-get update
+          $SUDO apt-get install -y cmake ninja-build wine64-tools libwine-dev || $SUDO apt-get install -y cmake ninja-build wine libwine-dev
+
+      - name: Install LLVM / Clang 22
+        run: |
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          export DEBIAN_FRONTEND=noninteractive
+          wget -q https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          $SUDO ./llvm.sh 22
+          $SUDO update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+          $SUDO update-alternatives --set clang /usr/bin/clang-22 || true
+          $SUDO update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100
+          $SUDO update-alternatives --set clang++ /usr/bin/clang++-22 || true
+          $SUDO update-alternatives --install /usr/bin/lld-link lld-link /usr/bin/lld-link-22 100
+          $SUDO update-alternatives --set lld-link /usr/bin/lld-link-22 || true
+          $SUDO update-alternatives --install /usr/bin/llvm-rc llvm-rc /usr/bin/llvm-rc-22 100
+          $SUDO update-alternatives --set llvm-rc /usr/bin/llvm-rc-22 || true
+          $SUDO update-alternatives --install /usr/bin/llvm-ml llvm-ml /usr/bin/llvm-ml-22 100
+          $SUDO update-alternatives --set llvm-ml /usr/bin/llvm-ml-22 || true
+
+      - name: Install xwin
+        uses: taiki-e/install-action@v2
+        with:
+          tool: xwin
+
+      - name: Run xwin splat
+        run: |
+          mkdir -p ~/.xwin-cache
+          xwin --accept-license --cache-dir ~/.xwin-cache/dl splat --output ~/.xwin-cache/splat
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build project
+        run: |
+          cmake --build build --config Release
+
+      - name: Upload build package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ignition-Linux-Windows
+          path: build/Ignition-Linux-Windows
