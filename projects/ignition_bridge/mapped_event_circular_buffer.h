@@ -2,25 +2,25 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #ifdef _WIN32
 #include <windows.h>
-#else
-#include <semaphore.h>
 #endif
 
 namespace ignition {
 namespace ipc {
 
-#pragma pack(push, 1)
 struct CircularBufferData {
-	std::atomic_flag lock = ATOMIC_FLAG_INIT;
-	size_t head;
-	size_t tail;
-	char buffer[];
+#ifndef _WIN32
+	alignas(4) uint32_t futex_seq{0};
+#endif
+	std::atomic_flag write_lock = ATOMIC_FLAG_INIT;
+	alignas(64) std::atomic<size_t> head{0};
+	alignas(64) std::atomic<size_t> tail{0};
+	alignas(64) char buffer[];
 };
-#pragma pack(pop)
 
 class CircularBuffer {
 public:
@@ -37,12 +37,12 @@ public:
     void wait_for_data();
 private:
 	std::string name_;
+	bool is_creator_ = false;
 #ifdef _WIN32
 	HANDLE hMapFile_ = NULL;
 	HANDLE hDataAvailableEvent_ = NULL;
 #else
 	int shm_fd_ = -1;
-	sem_t *sem_ = nullptr;
 #endif
 	CircularBufferData* data_ = nullptr;
 	size_t buffer_size_ = 0;
@@ -50,3 +50,4 @@ private:
 
 } // namespace ipc
 } // namespace ignition
+

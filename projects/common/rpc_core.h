@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <span>
 #include <map>
 #include <functional>
 #include <memory>
@@ -170,7 +171,7 @@ private:
     RpcObject* _FindOrCreateProxy(RpcObjectId id, RpcClassEnum classId);
 
     void ListenLoop();
-    void ProcessMessage(const std::vector<char>& buffer);
+    void ProcessMessage(std::span<const char> buffer);
     void SendRPCMessage(const std::vector<char>& buffer);
     template<class F, class... Args>
     void EnqueueTask(F&& f, Args&&... args);

@@ -353,14 +353,14 @@ void RpcSystem::ListenLoop() {
         size_t message_size = SHM_BUFFER_SIZE;
 
         while (mapped_event_circular_buffer_read(pReadBuffer, message, &message_size)) {
-            ProcessMessage(std::vector<char>(message, message + message_size));
-            
+            ProcessMessage(std::span<const char>(message, message_size));
+
             message_size = SHM_BUFFER_SIZE;
         }
     }
 }
 
-void RpcSystem::ProcessMessage(const std::vector<char>& buffer) {
+void RpcSystem::ProcessMessage(std::span<const char> buffer) {
     if (buffer.empty()) return;
 
     const char* ptr = buffer.data();

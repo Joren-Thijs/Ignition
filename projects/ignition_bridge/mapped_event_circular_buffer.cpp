@@ -5,9 +5,20 @@
 #include <iostream>
 
 #ifndef _WIN32
+#include <cerrno>
 #include <fcntl.h>
+#include <linux/futex.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #include <unistd.h>
+
+static inline int futex_wait(uint32_t* uaddr, uint32_t val) {
+    return syscall(SYS_futex, uaddr, FUTEX_WAIT, val, nullptr, nullptr, 0);
+}
+
+static inline int futex_wake(uint32_t* uaddr, int count = 1) {
+    return syscall(SYS_futex, uaddr, FUTEX_WAKE, count, nullptr, nullptr, 0);
+}
 #endif
 
 namespace ignition {
@@ -48,6 +59,7 @@ CircularBuffer::~CircularBuffer() {
 bool CircularBuffer::Create(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
+	is_creator_ = true;
 
 #ifdef _WIN32
 	std::string shm_name = name_ + "_shm";
@@ -68,9 +80,9 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	}
 
 	new (data_) CircularBufferData();
-	data_->head = 0;
-	data_->tail = 0;
-	data_->lock.clear(std::memory_order_release);
+	data_->write_lock.clear(std::memory_order_release);
+	data_->head.store(0, std::memory_order_relaxed);
+	data_->tail.store(0, std::memory_order_relaxed);
 
 	hDataAvailableEvent_ = CreateEventA(NULL, FALSE, FALSE, event_name.c_str());
 	if (hDataAvailableEvent_ == NULL) {
@@ -80,11 +92,9 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	}
 #else
 	std::string shm_name = "/" + name_ + "_shm";
-	std::string event_name = "/" + name_ + "_event";
 
-	// Unlink previous instances, in case of a crash
+	// Unlink previous instances, in case of a prior unclean exit
 	shm_unlink(shm_name.c_str());
-	sem_unlink(event_name.c_str());
 
 	shm_fd_ = shm_open(shm_name.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	if (shm_fd_ == -1) {
@@ -108,19 +118,10 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 	}
 
 	new (data_) CircularBufferData();
-	data_->head = 0;
-	data_->tail = 0;
-	data_->lock.clear(std::memory_order_release);
-
-	sem_ = sem_open(event_name.c_str(), O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, 0);
-	if (sem_ == SEM_FAILED) {
-		std::cerr << "Failed to create semaphore: " << errno << std::endl;
-		munmap(data_, sizeof(CircularBufferData) + size);
-		data_ = nullptr;
-		close(shm_fd_);
-		shm_fd_ = -1;
-		return false;
-	}
+	data_->futex_seq = 0;
+	data_->write_lock.clear(std::memory_order_release);
+	data_->head.store(0, std::memory_order_relaxed);
+	data_->tail.store(0, std::memory_order_relaxed);
 #endif
 
 	return true;
@@ -129,6 +130,8 @@ bool CircularBuffer::Create(const std::string& name, size_t size) {
 bool CircularBuffer::Open(const std::string& name, size_t size) {
 	name_ = name;
 	buffer_size_ = size;
+	is_creator_ = false;
+
 #ifdef _WIN32
 	std::string shm_name = name_ + "_shm";
 	std::string event_name = name_ + "_event";
@@ -152,7 +155,6 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 	}
 #else
 	std::string shm_name = "/" + name_ + "_shm";
-	std::string event_name = "/" + name_ + "_event";
 
 	shm_fd_ = shm_open(shm_name.c_str(), O_RDWR | O_CLOEXEC, 0);
 	if (shm_fd_ == -1) {
@@ -163,16 +165,6 @@ bool CircularBuffer::Open(const std::string& name, size_t size) {
 	data_ = (CircularBufferData*)mmap(NULL, sizeof(CircularBufferData) + size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
 	if (data_ == MAP_FAILED) {
 		std::cout << "Could not map shared memory object: " << errno << std::endl;
-		close(shm_fd_);
-		shm_fd_ = -1;
-		return false;
-	}
-
-	sem_ = sem_open(event_name.c_str(), O_RDWR | O_CLOEXEC);
-	if (sem_ == SEM_FAILED) {
-		std::cout << "Failed to open semaphore: " << errno << std::endl;
-		munmap(data_, sizeof(CircularBufferData) + size);
-		data_ = nullptr;
 		close(shm_fd_);
 		shm_fd_ = -1;
 		return false;
@@ -201,84 +193,85 @@ void CircularBuffer::Close() {
 		munmap(data_, sizeof(CircularBufferData) + buffer_size_);
 		data_ = nullptr;
 	}
-	if (sem_) {
-		sem_close(sem_);
-		sem_ = nullptr;
-	}
 	if (shm_fd_ != -1) {
 		close(shm_fd_);
 		shm_fd_ = -1;
 
-		std::string shm_name = "/" + name_ + "_shm";
-		std::string event_name = "/" + name_ + "_event";
-		shm_unlink(shm_name.c_str());
-		sem_unlink(event_name.c_str());
+		if (is_creator_) {
+			std::string shm_name = "/" + name_ + "_shm";
+			shm_unlink(shm_name.c_str());
+		}
 	}
 #endif
 }
 
 bool CircularBuffer::write(const char* data, size_t size) {
-	if (!data_) return false;
+	if (!data_ || !data) return false;
 
-	while (data_->lock.test_and_set(std::memory_order_acquire)) {}
+	while (data_->write_lock.test_and_set(std::memory_order_acquire)) {}
 
 	const size_t total_size = sizeof(size_t) + size;
+	const size_t current_tail = data_->tail.load(std::memory_order_relaxed);
+	const size_t current_head = data_->head.load(std::memory_order_acquire);
+
 	size_t free_space;
-	if (data_->head <= data_->tail) {
-		free_space = buffer_size_ - (data_->tail - data_->head);
+	if (current_head <= current_tail) {
+		free_space = buffer_size_ - (current_tail - current_head);
 	}
 	else {
-		free_space = data_->head - data_->tail;
+		free_space = current_head - current_tail;
 	}
 
 	if (total_size >= free_space) {
-		data_->lock.clear(std::memory_order_release);
+		data_->write_lock.clear(std::memory_order_release);
 		return false; // Not enough space
 	}
 
-	size_t current_tail = data_->tail;
-	write_data_to_buffer(data_, current_tail, &size, sizeof(size_t), buffer_size_);
-	write_data_to_buffer(data_, current_tail, data, size, buffer_size_);
-	data_->tail = current_tail;
+	size_t next_tail = current_tail;
+	write_data_to_buffer(data_, next_tail, &size, sizeof(size_t), buffer_size_);
+	write_data_to_buffer(data_, next_tail, data, size, buffer_size_);
 
-	data_->lock.clear(std::memory_order_release);
+	data_->tail.store(next_tail, std::memory_order_release);
+
+	data_->write_lock.clear(std::memory_order_release);
 
 #ifdef _WIN32
-	SetEvent(hDataAvailableEvent_);
+	if (hDataAvailableEvent_) {
+		SetEvent(hDataAvailableEvent_);
+	}
 #else
-	sem_post(sem_);
+	__atomic_fetch_add(&data_->futex_seq, 1, __ATOMIC_RELEASE);
+	futex_wake(&data_->futex_seq, 1);
 #endif
 
 	return true;
 }
 
 bool CircularBuffer::read(char* data, size_t& size) {
-	if (!data_) return false;
+	if (!data_ || !data) return false;
 
-	while (data_->lock.test_and_set(std::memory_order_acquire)) {}
+	const size_t current_head = data_->head.load(std::memory_order_relaxed);
+	const size_t current_tail = data_->tail.load(std::memory_order_acquire);
 
-	bool hasRead = false;
-	if (data_->head != data_->tail) {
-		size_t message_size;
-		size_t current_head = data_->head;
-		read_data_from_buffer(data_, current_head, &message_size, sizeof(size_t), buffer_size_);
-
-		if (size >= message_size) {
-			read_data_from_buffer(data_, current_head, data, message_size, buffer_size_);
-			
-			data_->head = current_head;
-			size = message_size;
-			hasRead = true;
-		}
-		else {
-			// Provided buffer is too small
-			size = 0;
-			throw std::runtime_error("Buffer too small for message");
-		}
+	if (current_head == current_tail) {
+		return false; // Empty buffer
 	}
 
-	data_->lock.clear(std::memory_order_release);
-	return hasRead;
+	size_t message_size = 0;
+	size_t next_head = current_head;
+	read_data_from_buffer(data_, next_head, &message_size, sizeof(size_t), buffer_size_);
+
+	if (size < message_size) {
+		// Provided buffer is too small
+		size = 0;
+		throw std::runtime_error("Buffer too small for message");
+	}
+
+	read_data_from_buffer(data_, next_head, data, message_size, buffer_size_);
+	size = message_size;
+
+	data_->head.store(next_head, std::memory_order_release);
+	return true;
 }
 
 void CircularBuffer::wait_for_data() {
@@ -286,8 +279,21 @@ void CircularBuffer::wait_for_data() {
 	if (hDataAvailableEvent_)
 		WaitForSingleObject(hDataAvailableEvent_, INFINITE);
 #else
-	if (sem_)
-		sem_wait(sem_);
+	if (!data_) return;
+
+	while (data_->head.load(std::memory_order_relaxed) == data_->tail.load(std::memory_order_acquire)) {
+		uint32_t expected = __atomic_load_n(&data_->futex_seq, __ATOMIC_ACQUIRE);
+
+		// If we still have data, don't wait
+		if (data_->head.load(std::memory_order_relaxed) != data_->tail.load(std::memory_order_acquire)) {
+			break;
+		}
+
+		int ret = futex_wait(&data_->futex_seq, expected);
+		if (ret == -1 && (errno == EAGAIN || errno == EINTR)) {
+			continue;
+		}
+	}
 #endif
 }
 
