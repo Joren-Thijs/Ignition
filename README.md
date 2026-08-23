@@ -4,6 +4,11 @@ Allows you to run Windows-only SteamVR drivers on Linux, using Wine/Proton.
 
 # How to use
 
+## SteamOS
+For SteamOS you can use the included [install script](setup/install-ignition-steam-os.sh).
+
+## Other Distros
+
 > [!NOTE]
 > If you want to get started with Playstation VR2 on Ignition, go to the [Linux support](https://github.com/BnuuySolutions/PSVR2Toolkit/wiki/Linux-support) wiki page for PSVR2Toolkit.
 

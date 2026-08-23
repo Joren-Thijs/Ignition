@@ -51,7 +51,7 @@ echo "Disabling readonly filesystem"
 sudo steamos-readonly disable
 
 #Setup working directories
-work_dir="$HOME/PSVR2_Setup"
+work_dir="$HOME/PSVR2-toolkit-setup"
 temp_dir="$work_dir/temp"
 
 mkdir -p "$temp_dir"
