@@ -5,6 +5,7 @@ echo "Setup starting"
 # Settings
 steamvr_fixes_version="v0.1.4"
 psvr2_toolkit_version="v1.0.0-experimental-1"
+psvr2_toolkit_unity_setup_version="v1.1.0"
 
 echo "Checking if necessary files are present..."
 steamvr_path="$HOME/.steam/steam/steamapps/common/SteamVR"
@@ -153,5 +154,14 @@ else
 fi
 
 echo "Finished editing SteamVR settings"
+
+echo "Installing PSVR2 Toolkit UnitySetup for setting up playspace"
+
+unity_setup_path="$work_dir/psvr2-toolkit-unity-setup"
+unity_setup_zip_path="$temp_dir/psvr2-toolkit-unity-setup.zip"
+
+wget -O "$unity_setup_zip_path" "https://github.com/BnuuySolutions/PSVR2Toolkit.UnitySetup/releases/download/$psvr2_toolkit_unity_setup_version/PSVR2Toolkit.UnitySetup-Linux.zip"
+
+unzip -o "$unity_setup_zip_path" -d "$unity_setup_path"
 
 echo "Setup Finished"
