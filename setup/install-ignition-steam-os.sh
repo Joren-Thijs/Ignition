@@ -172,5 +172,4 @@ echo "Setup Finished"
 
 echo "Tip:
 If your PSVR2 Sense controller don't show up in SteamVR.
-Go to Steam -> SteamVR -> Properties -> Controller -> Select 'Disable Steam Input'
-Restart SteamVR." >&2
+Go to Steam -> SteamVR -> Properties -> Controller -> Select 'Disable Steam Input' -> Restart SteamVR" >&2
