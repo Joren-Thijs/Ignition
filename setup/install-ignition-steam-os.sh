@@ -164,4 +164,13 @@ wget -O "$unity_setup_zip_path" "https://github.com/BnuuySolutions/PSVR2Toolkit.
 
 unzip -o "$unity_setup_zip_path" -d "$unity_setup_path"
 
+chmod +x "$unity_setup_path/PSVR2Toolkit.UnitySetup.x86_64"
+
+echo "Finished installing PSVR2 Toolkit UnitySetup"
+
 echo "Setup Finished"
+
+echo "Tip:
+If your PSVR2 Sense controller don't show up in SteamVR.
+Go to Steam -> SteamVR -> Properties -> Controller -> Select 'Disable Steam Input'
+Restart SteamVR." >&2
