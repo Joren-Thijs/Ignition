@@ -5,7 +5,7 @@ Allows you to run Windows-only SteamVR drivers on Linux, using Wine/Proton.
 # How to use
 
 ## SteamOS
-For SteamOS you can use the included [install script](setup/install-ignition-steam-os.sh).
+For SteamOS you can use the included [install script](setup/SteamOS/install-ignition-steam-os.sh).
 
 ## Other Distros
 
@@ -19,6 +19,17 @@ You may also use Ignition on Windows to run Windows drivers on top of it, which 
 # Supported Drivers
 
 Currently, Ignition only supports PlayStation VR2 (using [PSVR2Toolkit](https://github.com/BnuuySolutions/PSVR2Toolkit) with the experimental release and some minor modifications). Support for more drivers is something that will hopefully happen over time. Right now, most drivers don't work under Wine/Proton due to no USB support or missing dependencies.
+
+## Tracking
+
+If you are experiencing tracking issues this is likely caused by an older Bluetooth driver or a low Bluetooth polling rate. 
+There is a [community fix](https://github.com/RealSupremium/bluez/commit/fadd6455d4e9716b6c724681e18cfb3d7a1704e4) for the Linux BlueZ bluetooth driver that adreses this.
+You can try installing this by building it from source. (There are currenently no prebuilt packages available, but we are working to upstream the fix)
+Remember to re-pair your controllers after updating.
+
+### SteamOS
+On SteamOS the updated bluetooth driver is likely required due to SteamOS shipping with an older Bluetooth driver.
+There is an [update script](setup/SteamOS/update-bluetooth-driver-steamos.sh) available in the setup folder to help you install it.
 
 # How it works
 
