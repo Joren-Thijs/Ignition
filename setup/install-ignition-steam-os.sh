@@ -169,7 +169,7 @@ chmod +x "$unity_setup_path/PSVR2Toolkit.UnitySetup.x86_64"
 echo "Finished installing PSVR2 Toolkit UnitySetup"
 
 echo "Setup Finished"
-
+echo "Remember to Re-run this script after a SteamOS update."
 echo "Tip:
 If your PSVR2 Sense controller don't show up in SteamVR.
 Go to Steam -> SteamVR -> Properties -> Controller -> Select 'Disable Steam Input' -> Restart SteamVR" >&2
